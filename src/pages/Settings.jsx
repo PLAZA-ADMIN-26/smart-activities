@@ -140,7 +140,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="px-5 pt-4 pb-6 max-w-2xl mx-auto page-transition">
+    <div className="px-5 pt-4 pb-6 max-w-2xl mx-auto page-transition overflow-x-hidden">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-extrabold">Impostazioni</h1>
         <span className="text-xs text-textSoft dark:text-dark-text/50">
@@ -166,7 +166,7 @@ export default function Settings() {
             Questo browser non supporta le notifiche push.
           </p>
         )}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between gap-4 mb-3 pr-1">
           <span className="text-sm">
             Notifiche push {permission === 'granted' && notifSettings.enabled ? '· attive' : '· disattive'}
           </span>
@@ -177,7 +177,7 @@ export default function Settings() {
             Le notifiche sono bloccate dal browser. Abilitale nelle impostazioni del sito per usarle.
           </p>
         )}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between gap-4 mb-3 pr-1">
           <span className="text-sm">Suono notifiche</span>
           <Toggle checked={notifSettings.sound} onChange={toggleSound} />
         </div>
@@ -249,7 +249,7 @@ function Toggle({ checked, onChange, disabled }) {
     <button
       onClick={onChange}
       disabled={disabled}
-      className={`w-12 h-7 rounded-full relative transition-colors duration-200 disabled:opacity-40 ${checked ? 'bg-primary' : 'bg-textSoft/25'}`}
+      className={`shrink-0 self-center w-12 h-7 rounded-full relative transition-colors duration-200 disabled:opacity-40 ${checked ? 'bg-primary' : 'bg-textSoft/25'}`}
     >
       <span
         className={`absolute top-0.5 w-6 h-6 rounded-full bg-white transition-transform duration-200 ${checked ? 'translate-x-5' : 'translate-x-0.5'}`}

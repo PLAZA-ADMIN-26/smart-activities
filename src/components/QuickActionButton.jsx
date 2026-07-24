@@ -11,7 +11,7 @@ export default function QuickActionButton() {
   if (location.pathname === '/note' && location.state?.editing) return null;
 
   return (
-    <div className="fixed right-5 z-40" style={{ bottom: 'calc(76px + env(safe-area-inset-bottom))' }}>
+    <div className="fixed right-5 z-40" style={{ bottom: 'calc(82px + env(safe-area-inset-bottom))' }}>
       {open && (
         <div className="flex flex-col items-end gap-2 mb-3 animate-fade-in">
           <button

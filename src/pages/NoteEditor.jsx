@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import jsPDF from 'jspdf';
-import { organizeIdeasV3, detectProject } from '../utils/ideaOrganizer';
+import { detectProject } from '../utils/ideaOrganizer';
+import { organizeNoteSmart } from '../utils/aiClient';
 import { pushNoteVersion, restoreNoteVersion } from '../utils/storage';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -8,6 +9,15 @@ import { IconSparkle, IconImage, IconClose } from '../components/Icons';
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function getImageDimensions(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
 }
 
 export default function NoteEditor({ note, onSave, onDelete, onClose, onAddAutoTasks, onAddSuggestedTask }) {
@@ -28,6 +38,7 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddAutoT
   const [projectPromptDismissed, setProjectPromptDismissed] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [saveStatus, setSaveStatus] = useState('salvato');
+  const [organizing, setOrganizing] = useState(false);
   const [saveError, setSaveError] = useState(false);
 
   const saveTimer = useRef(null);
@@ -124,10 +135,17 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddAutoT
     });
   };
 
-  const handleOrganizeIdeas = () => {
-    const result = organizeIdeasV3(content || title);
-    setAiPreview(result);
-    setSuggestedDrafts(result.suggestedTasks.map((t) => ({ ...t, decided: false })));
+  const handleOrganizeIdeas = async () => {
+    setOrganizing(true);
+    try {
+      const result = await organizeNoteSmart(content || title);
+      setAiPreview(result);
+      setSuggestedDrafts(result.suggestedTasks.map((t) => ({ ...t, decided: false })));
+    } catch (e) {
+      showToast('Si è verificato un problema. Riprova tra poco.', 'error');
+    } finally {
+      setOrganizing(false);
+    }
   };
 
   const applyAiChanges = () => {
@@ -185,28 +203,100 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddAutoT
     URL.revokeObjectURL(url);
   };
 
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    const marginX = 15;
-    let y = 20;
-    doc.setFontSize(16);
-    doc.text(title || 'Nota', marginX, y);
-    y += 10;
-    doc.setFontSize(11);
-    const contentLines = doc.splitTextToSize(content || '', 180);
-    doc.text(contentLines, marginX, y);
-    y += contentLines.length * 6 + 6;
-    checklist.forEach((c) => {
-      doc.text(`${c.done ? '[x]' : '[ ]'} ${c.text}`, marginX, y);
-      y += 7;
-    });
-    if (links.length) {
+  const exportPDF = async () => {
+    try {
+      const doc = new jsPDF();
+      const marginX = 15;
+      const pageHeight = 297;
+      const contentWidth = 210 - marginX * 2;
+      let y = 20;
+
+      const ensureSpace = (needed) => {
+        if (y + needed > pageHeight - 15) {
+          doc.addPage();
+          y = 20;
+        }
+      };
+
+      doc.setFontSize(16);
+      doc.text(title || 'Nota', marginX, y);
+      y += 10;
+
+      doc.setFontSize(11);
+      // "•" può non essere renderizzato dal font di default del PDF: uso "-" per sicurezza
+      const cleanedContent = (content || '').replace(/•/g, '-');
+      const contentLines = doc.splitTextToSize(cleanedContent, contentWidth);
+      contentLines.forEach((line) => {
+        ensureSpace(7);
+        doc.text(line, marginX, y);
+        y += 6;
+      });
       y += 4;
-      doc.text('Link:', marginX, y);
-      y += 6;
-      links.forEach((l) => { doc.text(l, marginX, y); y += 6; });
+
+      if (checklist.length) {
+        ensureSpace(9);
+        doc.setFont(undefined, 'bold');
+        doc.text('Checklist:', marginX, y);
+        doc.setFont(undefined, 'normal');
+        y += 7;
+        checklist.forEach((c) => {
+          ensureSpace(7);
+          doc.text(`${c.done ? '[x]' : '[ ]'} ${c.text}`, marginX, y);
+          y += 7;
+        });
+        y += 3;
+      }
+
+      if (links.length) {
+        ensureSpace(9);
+        doc.setFont(undefined, 'bold');
+        doc.text('Link:', marginX, y);
+        doc.setFont(undefined, 'normal');
+        y += 7;
+        links.forEach((l) => {
+          const linkLines = doc.splitTextToSize(l, contentWidth);
+          linkLines.forEach((line) => {
+            ensureSpace(6);
+            doc.text(line, marginX, y);
+            y += 6;
+          });
+        });
+        y += 3;
+      }
+
+      if (images.length) {
+        ensureSpace(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('Immagini:', marginX, y);
+        doc.setFont(undefined, 'normal');
+        y += 8;
+
+        for (const img of images) {
+          try {
+            const dims = await getImageDimensions(img.dataUrl);
+            const mmPerPx = 0.264583; // conversione px → mm a 96dpi
+            let w = dims.width * mmPerPx;
+            let h = dims.height * mmPerPx;
+            const maxHeight = 90;
+            const scale = Math.min(contentWidth / w, maxHeight / h, 1);
+            w *= scale;
+            h *= scale;
+            ensureSpace(h + 10);
+            const format = img.dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+            doc.addImage(img.dataUrl, format, marginX, y, w, h);
+            y += h + 8;
+          } catch (e) {
+            console.warn('Immagine non inseribile nel PDF', e);
+          }
+        }
+      }
+
+      doc.save(`${title || 'nota'}.pdf`);
+      showToast('PDF esportato ✓');
+    } catch (e) {
+      console.error(e);
+      showToast('Si è verificato un problema con l\'esportazione. Riprova tra poco.', 'error');
     }
-    doc.save(`${title || 'nota'}.pdf`);
   };
 
   const showProjectPrompt = isProject && !imageBetaResult && !projectPromptDismissed && content.trim().length > 0;
@@ -247,13 +337,18 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddAutoT
           <p className="text-xs text-textSoft dark:text-dark-text/50 -mt-3">Ultima modifica di {note.lastEditedBy}</p>
         )}
 
-        <button onClick={handleOrganizeIdeas} className="btn-primary w-full min-h-[48px] flex items-center justify-center gap-2">
-          <IconSparkle className="w-5 h-5" /> Sistema la mia nota
+        <button onClick={handleOrganizeIdeas} disabled={organizing} className="btn-primary w-full min-h-[48px] flex items-center justify-center gap-2 disabled:opacity-70">
+          <IconSparkle className="w-5 h-5" /> {organizing ? 'Sto organizzando la nota…' : 'Sistema la mia nota'}
         </button>
 
         {aiPreview && (
           <div className="card p-4 space-y-3">
-            <p className="font-semibold">Anteprima modifica IA</p>
+            <div className="flex items-center justify-between">
+              <p className="font-semibold">Anteprima modifica IA</p>
+              <span className="text-[10px] uppercase tracking-wide text-textSoft dark:text-dark-text/40">
+                {aiPreview.source === 'ai' ? 'Generata da Gemini' : 'Motore locale (offline)'}
+              </span>
+            </div>
             <pre className="text-sm whitespace-pre-wrap font-sans bg-bg dark:bg-dark-bg rounded-2xl p-3">
               {aiPreview.organizedText || 'Nessuna modifica proposta: il testo è già chiaro.'}
             </pre>

@@ -20,6 +20,18 @@ function getRemaining(targetISO) {
   return { expired: false, days, hours, minutes, seconds };
 }
 
+function MiniToggle({ checked, onChange, disabled }) {
+  return (
+    <button
+      onClick={onChange}
+      disabled={disabled}
+      className={`shrink-0 w-9 h-5 rounded-full relative transition-colors duration-200 disabled:opacity-40 ${checked ? 'bg-primary dark:bg-dark-primary' : 'bg-textSoft/25'}`}
+    >
+      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${checked ? 'translate-x-4' : 'translate-x-0.5'}`} />
+    </button>
+  );
+}
+
 export default function Countdown() {
   const { user } = useAuth();
   const [countdowns, setCountdowns] = useState([]);
@@ -43,7 +55,7 @@ export default function Countdown() {
   };
 
   const addCountdown = (c) => {
-    persist([{ ...c, id: uid() }, ...countdowns]);
+    persist([{ ...c, id: uid(), active: true }, ...countdowns]);
     setCreating(false);
   };
 
@@ -58,59 +70,86 @@ export default function Countdown() {
     persist(countdowns.map((c) => (c.id === id ? { ...c, important: !c.important } : c)));
   };
 
+  const toggleActive = (id) => {
+    persist(countdowns.map((c) => (c.id === id ? { ...c, active: c.active === false ? true : false } : c)));
+  };
+
+  const sorted = [...countdowns].sort((a, b) => new Date(a.date) - new Date(b.date));
+
   return (
-    <div className="px-5 pt-4 pb-6 max-w-2xl mx-auto page-transition">
-      <div className="flex items-center justify-between mb-4">
+    <div className="px-5 pt-4 pb-6 max-w-2xl mx-auto page-transition overflow-x-hidden">
+      <div className="flex items-center justify-between mb-4 gap-3">
         <h1 className="text-2xl font-extrabold">Countdown</h1>
-        <button onClick={() => setCreating(true)} className="btn-primary px-4 py-2 text-sm min-h-[44px]">+ Nuovo</button>
+        <button onClick={() => setCreating(true)} className="btn-primary px-4 py-2 text-sm min-h-[44px] shrink-0">+ Nuovo</button>
       </div>
 
       <div className="space-y-3">
-        {countdowns.length === 0 && (
+        {sorted.length === 0 && (
           <p className="text-sm text-textSoft dark:text-dark-text/60 text-center py-10">Nessun countdown attivo.</p>
         )}
-        {[...countdowns].sort((a, b) => new Date(a.date) - new Date(b.date)).map((c) => {
+        {sorted.map((c) => {
+          const isActive = c.active !== false;
           const r = getRemaining(c.date);
-          const urgent = !r.expired && r.days === 0 && r.hours < 24;
-          const soon = !r.expired && r.days < 7;
+          const urgent = isActive && !r.expired && r.days === 0 && r.hours < 24;
+          const soon = isActive && !r.expired && r.days < 7;
           const borderColor = urgent ? '#C65A3A' : soon ? '#E07A4E' : 'transparent';
+
           return (
-            <div key={c.id} className="card p-4" style={{ borderLeft: `4px solid ${borderColor}` }}>
-              <div className="flex items-center justify-between mb-2">
-                <p className="font-semibold flex items-center gap-2">
+            <div key={c.id} className={`card p-4 ${!isActive ? 'opacity-50' : ''}`} style={{ borderLeft: `4px solid ${borderColor}` }}>
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   <span
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
                     style={{ background: c.color || '#C65A3A' }}
                   >
                     {(c.title || '?').charAt(0).toUpperCase()}
                   </span>
-                  {c.title}
-                </p>
-                <div className="flex items-center gap-1">
+                  <p className="font-semibold truncate min-w-0">{c.title}</p>
+                </div>
+                <div className="flex items-center gap-0.5 shrink-0">
                   <button
                     onClick={() => toggleImportant(c.id)}
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-primary dark:text-dark-primary"
+                    className="min-w-[40px] min-h-[40px] flex items-center justify-center text-primary dark:text-dark-primary"
                     title="Segna come importante (mostrato in homepage)"
                   >
                     <IconStar className="w-5 h-5" filled={c.important} />
                   </button>
-                  <button onClick={() => setConfirmDeleteId(c.id)} className="text-textSoft dark:text-dark-text/40 min-w-[44px] min-h-[44px] flex items-center justify-center">
+                  <button
+                    onClick={() => setConfirmDeleteId(c.id)}
+                    className="min-w-[40px] min-h-[40px] flex items-center justify-center text-textSoft dark:text-dark-text/40"
+                  >
                     <IconClose className="w-4 h-4" />
                   </button>
                 </div>
               </div>
-              {r.expired ? (
-                <p className="text-sm font-medium text-textSoft dark:text-dark-text/60">Scaduto</p>
-              ) : (
-                <div className="flex gap-3 text-center">
-                  {[['gg', r.days], ['hh', r.hours], ['mm', r.minutes], ['ss', r.seconds]].map(([label, val]) => (
-                    <div key={label}>
-                      <p className="text-xl font-extrabold" style={{ color: c.color || '#C65A3A' }}>{String(val).padStart(2, '0')}</p>
-                      <p className="text-[10px] text-textSoft dark:text-dark-text/50 uppercase">{label}</p>
+
+              <div className="flex items-center justify-between gap-3 mb-1">
+                <div className="flex-1 min-w-0">
+                  {!isActive ? (
+                    <p className="text-sm font-medium text-textSoft dark:text-dark-text/50">Countdown disattivato</p>
+                  ) : r.expired ? (
+                    <p className="text-sm font-medium text-textSoft dark:text-dark-text/60">Scaduto</p>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-2 text-center max-w-[220px]">
+                      {[['gg', r.days], ['hh', r.hours], ['mm', r.minutes], ['ss', r.seconds]].map(([label, val]) => (
+                        <div key={label}>
+                          <p className="text-lg sm:text-xl font-extrabold tabular-nums" style={{ color: c.color || '#C65A3A' }}>
+                            {String(val).padStart(2, '0')}
+                          </p>
+                          <p className="text-[10px] text-textSoft dark:text-dark-text/50 uppercase">{label}</p>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] text-textSoft dark:text-dark-text/50 whitespace-nowrap">
+                    {isActive ? 'Attivo' : 'Disattivo'}
+                  </span>
+                  <MiniToggle checked={isActive} onChange={() => toggleActive(c.id)} />
+                </div>
+              </div>
+
               <p className="text-xs text-textSoft dark:text-dark-text/40 mt-2">
                 {new Date(c.date).toLocaleString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
               </p>
@@ -155,7 +194,7 @@ function CreateCountdownModal({ onSave, onClose }) {
               <button
                 key={c}
                 onClick={() => setColor(c)}
-                className="w-9 h-9 rounded-full"
+                className="w-9 h-9 rounded-full shrink-0"
                 style={{ background: c, outline: color === c ? '2px solid #2F241D' : 'none' }}
               />
             ))}

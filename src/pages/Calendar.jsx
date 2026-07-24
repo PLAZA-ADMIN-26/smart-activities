@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { loadUserData, saveUserData, moveToTrash } from '../utils/storage';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { IconChevronLeft, IconChevronRight, IconPlus } from '../components/Icons';
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -15,12 +16,19 @@ const CATEGORY_COLORS = {
   'Da nota': '#6B5647'
 };
 
+const WEEKDAY_LABELS = ['L', 'M', 'M', 'G', 'V', 'S', 'D']; // Lunedì → Domenica
+
 function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function daysInMonth(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); }
+
+// Indice del giorno con Lunedì = 0 ... Domenica = 6 (invece del getDay() nativo con Domenica = 0)
+function mondayIndex(date) {
+  return (date.getDay() + 6) % 7;
+}
+
 function startOfWeek(d) {
-  const day = d.getDay();
   const res = new Date(d);
-  res.setDate(d.getDate() - day);
+  res.setDate(d.getDate() - mondayIndex(d));
   res.setHours(0, 0, 0, 0);
   return res;
 }
@@ -45,6 +53,7 @@ export default function CalendarPage() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('Tutte');
   const [editing, setEditing] = useState(null);
+  const [dayDetail, setDayDetail] = useState(null); // Date selezionata per il dettaglio giorno
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [, forceTick] = useState(0);
 
@@ -99,7 +108,6 @@ export default function CalendarPage() {
 
   const toggleStatus = (event) => handleSaveEvent({ ...event, status: event.status === 'completato' ? 'da fare' : 'completato' });
 
-  // Sposta un evento su un nuovo giorno mantenendo l'orario (drag & drop da mouse/desktop)
   const rescheduleEventToDay = (eventId, newDay) => {
     const ev = events.find((e) => e.id === eventId);
     if (!ev || !ev.date) return;
@@ -109,11 +117,18 @@ export default function CalendarPage() {
     handleSaveEvent({ ...ev, date: updatedDate.toISOString() });
   };
 
+  const openNewEventOnDay = (day) => {
+    const d = new Date(day);
+    d.setHours(9, 0, 0, 0);
+    setDayDetail(null);
+    setEditing({ date: d.toISOString() });
+  };
+
   return (
-    <div className="px-5 pt-4 pb-6 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
+    <div className="px-5 pt-4 pb-6 max-w-2xl mx-auto page-transition overflow-x-hidden">
+      <div className="flex items-center justify-between mb-4 gap-3">
         <h1 className="text-2xl font-extrabold">Calendario</h1>
-        <button onClick={() => setEditing({})} className="btn-primary px-4 py-2 text-sm min-h-[44px]">+ Evento</button>
+        <button onClick={() => setEditing({})} className="btn-primary px-4 py-2 text-sm min-h-[44px] shrink-0">+ Evento</button>
       </div>
 
       <div className="flex gap-2 mb-3 text-sm">
@@ -121,7 +136,7 @@ export default function CalendarPage() {
           <button
             key={v}
             onClick={() => setView(v)}
-            className={`px-3 py-1.5 rounded-xl2 min-h-[44px] ${view === v ? 'bg-primary text-white' : 'btn-ghost'}`}
+            className={`px-3 py-1.5 rounded-full min-h-[44px] ${view === v ? 'bg-primary text-white' : 'btn-ghost'}`}
           >
             {v === 'month' ? 'Mese' : v === 'week' ? 'Settimana' : 'Agenda'}
           </button>
@@ -141,13 +156,24 @@ export default function CalendarPage() {
       </select>
 
       {view === 'month' && (
-        <MonthView cursor={cursor} setCursor={setCursor} eventsByDay={eventsByDay} onSelectEvent={setEditing} onDropOnDay={rescheduleEventToDay} />
+        <MonthView cursor={cursor} setCursor={setCursor} eventsByDay={eventsByDay} onDropOnDay={rescheduleEventToDay} onSelectDay={setDayDetail} />
       )}
       {view === 'week' && (
-        <WeekView cursor={cursor} setCursor={setCursor} eventsByDay={eventsByDay} onSelectEvent={setEditing} onDropOnDay={rescheduleEventToDay} />
+        <WeekView cursor={cursor} setCursor={setCursor} eventsByDay={eventsByDay} onDropOnDay={rescheduleEventToDay} onSelectDay={setDayDetail} />
       )}
       {view === 'agenda' && (
         <AgendaView events={filteredEvents} onSelectEvent={setEditing} onToggleStatus={toggleStatus} />
+      )}
+
+      {dayDetail && (
+        <DayDetailModal
+          day={dayDetail}
+          events={eventsByDay[dayDetail.toDateString()] || []}
+          onClose={() => setDayDetail(null)}
+          onSelectEvent={(ev) => { setDayDetail(null); setEditing(ev); }}
+          onToggleStatus={toggleStatus}
+          onAddEvent={() => openNewEventOnDay(dayDetail)}
+        />
       )}
 
       {editing && (
@@ -165,31 +191,43 @@ export default function CalendarPage() {
   );
 }
 
-function MonthView({ cursor, setCursor, eventsByDay, onSelectEvent, onDropOnDay }) {
+function MonthView({ cursor, setCursor, eventsByDay, onDropOnDay, onSelectDay }) {
   const first = startOfMonth(cursor);
   const totalDays = daysInMonth(cursor);
-  const startWeekday = first.getDay();
+  const leadingBlanks = mondayIndex(first);
   const cells = [];
-  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let i = 0; i < leadingBlanks; i++) cells.push(null);
   for (let d = 1; d <= totalDays; d++) cells.push(new Date(cursor.getFullYear(), cursor.getMonth(), d));
+
+  const today = new Date();
 
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} className="px-2 min-h-[44px] min-w-[44px]">‹</button>
+        <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} className="min-h-[44px] min-w-[44px] flex items-center justify-center">
+          <IconChevronLeft className="w-5 h-5" />
+        </button>
         <p className="font-semibold capitalize">{cursor.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}</p>
-        <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} className="px-2 min-h-[44px] min-w-[44px]">›</button>
+        <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} className="min-h-[44px] min-w-[44px] flex items-center justify-center">
+          <IconChevronRight className="w-5 h-5" />
+        </button>
       </div>
-      <div className="grid grid-cols-7 gap-1 text-xs text-center text-textSoft dark:text-dark-text/50 mb-1">
-        {['D', 'L', 'M', 'M', 'G', 'V', 'S'].map((d, i) => <div key={i}>{d}</div>)}
+      <div className="grid grid-cols-7 text-xs text-center text-textSoft dark:text-dark-text/50 mb-1.5 font-medium">
+        {WEEKDAY_LABELS.map((d, i) => <div key={i}>{d}</div>)}
       </div>
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-1.5">
         {cells.map((day, i) => {
           const dayEvents = day ? eventsByDay[day.toDateString()] || [] : [];
+          const isToday = day && day.toDateString() === today.toDateString();
           return (
-            <div
+            <button
               key={i}
-              className={`aspect-square rounded-xl2 p-1 ${day ? 'bg-card dark:bg-dark-card' : ''}`}
+              type="button"
+              disabled={!day}
+              onClick={() => day && onSelectDay(day)}
+              className={`aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 min-w-0 transition-colors duration-150 ${
+                day ? 'bg-card dark:bg-dark-card active:bg-primary/10 dark:active:bg-dark-primary/15' : ''
+              }`}
               onDragOver={(e) => day && e.preventDefault()}
               onDrop={(e) => {
                 if (!day) return;
@@ -199,82 +237,97 @@ function MonthView({ cursor, setCursor, eventsByDay, onSelectEvent, onDropOnDay 
             >
               {day && (
                 <>
-                  <p className="text-xs font-medium">{day.getDate()}</p>
-                  <div className="flex flex-wrap gap-0.5 mt-0.5">
+                  <span
+                    className={`text-base font-bold leading-none flex items-center justify-center w-7 h-7 rounded-full ${
+                      isToday ? 'bg-primary dark:bg-dark-primary text-white' : ''
+                    }`}
+                  >
+                    {day.getDate()}
+                  </span>
+                  <div className="flex gap-0.5 h-1.5 items-center">
                     {dayEvents.slice(0, 3).map((e) => (
-                      <button
+                      <span
                         key={e.id}
                         draggable
                         onDragStart={(ev) => ev.dataTransfer.setData('text/event-id', e.id)}
-                        onClick={() => onSelectEvent(e)}
-                        className="w-2 h-2 rounded-full"
+                        className="w-1.5 h-1.5 rounded-full"
                         style={{ background: e.color || '#C65A3A' }}
-                        title={e.title}
                       />
                     ))}
                   </div>
                 </>
               )}
-            </div>
+            </button>
           );
         })}
       </div>
       <p className="text-xs text-textSoft dark:text-dark-text/40 mt-2 text-center">
-        Su desktop puoi trascinare un pallino su un altro giorno per spostare l'evento.
+        Tocca un giorno per vedere o aggiungere le attività. Su desktop puoi trascinare un pallino su un altro giorno per spostare l'evento.
       </p>
     </div>
   );
 }
 
-function WeekView({ cursor, setCursor, eventsByDay, onSelectEvent, onDropOnDay }) {
+function WeekView({ cursor, setCursor, eventsByDay, onDropOnDay, onSelectDay }) {
   const start = startOfWeek(cursor);
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(start);
     d.setDate(start.getDate() + i);
     return d;
   });
+  const today = new Date();
+
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() - 7))} className="px-2 min-h-[44px] min-w-[44px]">‹</button>
+        <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() - 7))} className="min-h-[44px] min-w-[44px] flex items-center justify-center">
+          <IconChevronLeft className="w-5 h-5" />
+        </button>
         <p className="font-semibold">Settimana del {start.toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}</p>
-        <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 7))} className="px-2 min-h-[44px] min-w-[44px]">›</button>
+        <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 7))} className="min-h-[44px] min-w-[44px] flex items-center justify-center">
+          <IconChevronRight className="w-5 h-5" />
+        </button>
       </div>
       <div className="space-y-2">
-        {days.map((day) => (
-          <div
-            key={day.toDateString()}
-            className="card p-3"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              const eventId = e.dataTransfer.getData('text/event-id');
-              if (eventId) onDropOnDay(eventId, day);
-            }}
-          >
-            <p className="text-sm font-semibold capitalize mb-1">
-              {day.toLocaleDateString('it-IT', { weekday: 'long', day: '2-digit', month: 'short' })}
-            </p>
-            {(eventsByDay[day.toDateString()] || []).map((e) => (
-              <button
-                key={e.id}
-                draggable
-                onDragStart={(ev) => ev.dataTransfer.setData('text/event-id', e.id)}
-                onClick={() => onSelectEvent(e)}
-                className="flex items-center gap-2 text-sm py-1.5 w-full text-left min-h-[44px]"
-              >
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: e.color }} />
-                <span className="flex-1 truncate">{e.title}</span>
-                <span className="text-xs text-textSoft dark:text-dark-text/40 shrink-0">{shortCountdown(e.date)}</span>
+        {days.map((day) => {
+          const isToday = day.toDateString() === today.toDateString();
+          return (
+            <div
+              key={day.toDateString()}
+              className="card p-3"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                const eventId = e.dataTransfer.getData('text/event-id');
+                if (eventId) onDropOnDay(eventId, day);
+              }}
+            >
+              <button onClick={() => onSelectDay(day)} className="w-full text-left flex items-center gap-2 mb-1">
+                <span className={`text-sm font-semibold capitalize ${isToday ? 'text-primary dark:text-dark-primary' : ''}`}>
+                  {day.toLocaleDateString('it-IT', { weekday: 'long', day: '2-digit', month: 'short' })}
+                </span>
               </button>
-            ))}
-            {!(eventsByDay[day.toDateString()] || []).length && (
-              <p className="text-xs text-textSoft dark:text-dark-text/40">Nessun evento</p>
-            )}
-          </div>
-        ))}
+              {(eventsByDay[day.toDateString()] || []).map((e) => (
+                <div
+                  key={e.id}
+                  draggable
+                  onDragStart={(ev) => ev.dataTransfer.setData('text/event-id', e.id)}
+                  onClick={() => onSelectDay(day)}
+                  className="flex items-center gap-2 text-sm py-1.5 w-full text-left min-h-[44px] cursor-pointer"
+                >
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: e.color }} />
+                  <span className="flex-1 truncate">{e.title}</span>
+                  <span className="text-xs text-textSoft dark:text-dark-text/40 shrink-0">{shortCountdown(e.date)}</span>
+                </div>
+              ))}
+              {!(eventsByDay[day.toDateString()] || []).length && (
+                <p className="text-xs text-textSoft dark:text-dark-text/40">Nessun evento</p>
+              )}
+            </div>
+          );
+        })}
       </div>
       <p className="text-xs text-textSoft dark:text-dark-text/40 mt-2 text-center">
-        Su desktop puoi trascinare un evento su un altro giorno per spostarlo.
+        Tocca un giorno per vedere o aggiungere le attività.
       </p>
     </div>
   );
@@ -287,18 +340,73 @@ function AgendaView({ events, onSelectEvent, onToggleStatus }) {
       {sorted.length === 0 && <p className="text-sm text-textSoft dark:text-dark-text/60 text-center py-10">Nessun evento.</p>}
       {sorted.map((e) => (
         <div key={e.id} className="card p-4 flex items-start gap-3">
-          <input type="checkbox" checked={e.status === 'completato'} onChange={() => onToggleStatus(e)} className="mt-1 accent-primary w-5 h-5" />
-          <button onClick={() => onSelectEvent(e)} className="flex-1 text-left">
-            <p className={`font-semibold ${e.status === 'completato' ? 'line-through text-textSoft dark:text-dark-text/40' : ''}`}>{e.title}</p>
+          <input type="checkbox" checked={e.status === 'completato'} onChange={() => onToggleStatus(e)} className="mt-1 accent-primary w-5 h-5 shrink-0" />
+          <button onClick={() => onSelectEvent(e)} className="flex-1 text-left min-w-0">
+            <p className={`font-semibold truncate ${e.status === 'completato' ? 'line-through text-textSoft dark:text-dark-text/40' : ''}`}>{e.title}</p>
             <p className="text-xs text-textSoft dark:text-dark-text/50">
               {e.date ? new Date(e.date).toLocaleString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Senza data'}
               {e.category ? ` · ${e.category}` : ''}
               {e.date ? ` · ${shortCountdown(e.date)}` : ''}
             </p>
           </button>
-          <span className="w-2 h-2 rounded-full mt-2" style={{ background: e.color }} />
+          <span className="w-2 h-2 rounded-full mt-2 shrink-0" style={{ background: e.color }} />
         </div>
       ))}
+    </div>
+  );
+}
+
+function DayDetailModal({ day, events, onClose, onSelectEvent, onToggleStatus, onAddEvent }) {
+  const sorted = [...events].sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4">
+      <div className="card w-full max-w-sm p-5 max-h-[75vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold capitalize">
+            {day.toLocaleDateString('it-IT', { weekday: 'long', day: '2-digit', month: 'long' })}
+          </h3>
+          <button onClick={onClose} className="text-sm text-textSoft dark:text-dark-text/50 min-h-[44px] px-2">Chiudi</button>
+        </div>
+
+        {sorted.length === 0 && (
+          <div className="text-center py-6">
+            <p className="text-sm text-textSoft dark:text-dark-text/60 mb-4">Nessuna attività in questo giorno.</p>
+            <button onClick={onAddEvent} className="btn-primary w-full min-h-[48px] flex items-center justify-center gap-2">
+              <IconPlus className="w-4 h-4" /> Aggiungi evento
+            </button>
+          </div>
+        )}
+
+        {sorted.length > 0 && (
+          <>
+            <ul className="space-y-2 mb-4">
+              {sorted.map((e) => (
+                <li key={e.id} className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={e.status === 'completato'}
+                    onChange={() => onToggleStatus(e)}
+                    className="mt-1 accent-primary w-5 h-5 shrink-0"
+                  />
+                  <button onClick={() => onSelectEvent(e)} className="flex-1 text-left min-w-0">
+                    <p className={`text-sm font-medium truncate ${e.status === 'completato' ? 'line-through text-textSoft dark:text-dark-text/40' : ''}`}>
+                      {e.title}
+                    </p>
+                    <p className="text-xs text-textSoft dark:text-dark-text/50">
+                      {new Date(e.date).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                      {e.category ? ` · ${e.category}` : ''}
+                    </p>
+                  </button>
+                  <span className="w-2 h-2 rounded-full mt-2 shrink-0" style={{ background: e.color }} />
+                </li>
+              ))}
+            </ul>
+            <button onClick={onAddEvent} className="btn-ghost w-full min-h-[48px] flex items-center justify-center gap-2">
+              <IconPlus className="w-4 h-4" /> Aggiungi un altro evento
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

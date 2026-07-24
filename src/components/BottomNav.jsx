@@ -15,14 +15,14 @@ export default function BottomNav() {
       className="fixed bottom-0 left-0 right-0 z-40 bg-card/95 dark:bg-dark-card/95 backdrop-blur border-t border-textSoft/10 dark:border-dark-text/10"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <ul className="flex justify-around items-stretch max-w-2xl mx-auto">
+      <ul className="flex items-stretch max-w-2xl mx-auto">
         {TABS.map((tab) => (
-          <li key={tab.to} className="flex-1">
+          <li key={tab.to} className="flex-1 min-w-0">
             <NavLink
               to={tab.to}
               end={tab.end}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center gap-1 py-2.5 text-xs font-medium transition-colors duration-200 relative min-h-[56px] ${
+                `relative flex flex-col items-center justify-center gap-1 py-2.5 px-1 text-xs font-medium transition-colors duration-200 min-h-[58px] w-full ${
                   isActive ? 'text-primary dark:text-dark-primary' : 'text-textSoft dark:text-dark-text/60'
                 }`
               }
@@ -30,10 +30,10 @@ export default function BottomNav() {
               {({ isActive }) => (
                 <>
                   {isActive && (
-                    <span className="absolute top-0 h-1 w-8 rounded-full bg-primary dark:bg-dark-primary transition-all duration-200" />
+                    <span className="absolute top-0 left-1/2 -translate-x-1/2 h-1 w-8 rounded-full bg-primary dark:bg-dark-primary transition-all duration-200" />
                   )}
-                  <tab.Icon className="w-6 h-6" />
-                  <span>{tab.label}</span>
+                  <tab.Icon className="w-6 h-6 shrink-0" />
+                  <span className="leading-none truncate max-w-full">{tab.label}</span>
                 </>
               )}
             </NavLink>

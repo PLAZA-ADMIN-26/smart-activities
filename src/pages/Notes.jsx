@@ -131,7 +131,7 @@ export default function Notes() {
   }
 
   return (
-    <div className="px-5 pt-4 pb-6 max-w-2xl mx-auto">
+    <div className="px-5 pt-4 pb-6 max-w-2xl mx-auto overflow-x-hidden">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-extrabold">Note</h1>
         <button onClick={() => setActiveNote({})} className="btn-primary px-4 py-2 text-sm min-h-[44px]">+ Nuova</button>

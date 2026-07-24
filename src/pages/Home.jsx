@@ -78,7 +78,7 @@ export default function Home() {
 
   const featuredCountdown = useMemo(() => {
     const now = Date.now();
-    const active = countdowns.filter((c) => new Date(c.date).getTime() >= now);
+    const active = countdowns.filter((c) => c.active !== false && new Date(c.date).getTime() >= now);
     const important = active.find((c) => c.important);
     return important || [...active].sort((a, b) => new Date(a.date) - new Date(b.date))[0];
   }, [countdowns]);
@@ -91,7 +91,7 @@ export default function Home() {
   }, [events]);
 
   return (
-    <div className="px-5 pt-4 pb-6 max-w-2xl mx-auto page-transition">
+    <div className="px-5 pt-4 pb-6 max-w-2xl mx-auto page-transition overflow-x-hidden">
       <h1 className="text-2xl font-extrabold mb-1">{greeting()} {user}</h1>
       <p className="text-textSoft dark:text-dark-text/60 mb-6">La tua giornata</p>
 
