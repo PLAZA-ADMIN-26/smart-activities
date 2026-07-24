@@ -18,9 +18,10 @@ export default function NotificationWatcher() {
       const events = loadUserData(user, 'events', []).filter((e) => e.status !== 'completato');
       const countdowns = loadUserData(user, 'countdowns', []);
       const reminders = notif.reminders?.length ? notif.reminders : [15, 60];
+      const soundEnabled = notif.sound !== false;
 
-      checkUpcoming(events, reminders, notifiedRef.current);
-      checkUpcoming(countdowns, reminders, notifiedRef.current);
+      checkUpcoming(events, reminders, notifiedRef.current, soundEnabled);
+      checkUpcoming(countdowns, reminders, notifiedRef.current, soundEnabled);
     };
 
     run();

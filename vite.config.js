@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'],
       manifest: {
-        name: 'Plaza — Organizza le tue idee',
-        short_name: 'Plaza',
-        description: 'Il sito per organizzare le tue idee: note, calendario e countdown.',
+        name: 'Prioritize',
+        short_name: 'Prioritize',
+        description: 'Organizza note, calendario e scadenze con intelligenza.',
         theme_color: '#C65A3A',
         background_color: '#F2E6D8',
         display: 'standalone',

@@ -1,27 +1,43 @@
 import { useEffect, useRef, useState } from 'react';
 import jsPDF from 'jspdf';
-import { organizeIdeas } from '../utils/ideaOrganizer';
+import { organizeIdeasV3, detectProject } from '../utils/ideaOrganizer';
+import { pushNoteVersion, restoreNoteVersion } from '../utils/storage';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { IconSparkle, IconImage, IconClose } from '../components/Icons';
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-export default function NoteEditor({ note, onSave, onDelete, onClose, onAddTasksToCalendar }) {
+export default function NoteEditor({ note, onSave, onDelete, onClose, onAddAutoTasks, onAddSuggestedTask }) {
+  const { user } = useAuth();
+  const { showToast } = useToast();
   const [title, setTitle] = useState(note?.title || '');
   const [content, setContent] = useState(note?.content || '');
   const [checklist, setChecklist] = useState(note?.checklist || []);
   const [links, setLinks] = useState(note?.links || []);
   const [images, setImages] = useState(note?.images || []);
   const [attachments, setAttachments] = useState(note?.attachments || []);
+  const [history, setHistory] = useState(note?.history || []);
   const [newLink, setNewLink] = useState('');
   const [newCheckItem, setNewCheckItem] = useState('');
   const [aiPreview, setAiPreview] = useState(null);
+  const [suggestedDrafts, setSuggestedDrafts] = useState([]);
   const [imageBetaResult, setImageBetaResult] = useState(note?.generatedImage || null);
+  const [projectPromptDismissed, setProjectPromptDismissed] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('salvato');
+  const [saveError, setSaveError] = useState(false);
+
   const saveTimer = useRef(null);
+  const lastSavedRef = useRef({ title, content });
   const fileInputRef = useRef(null);
   const attachInputRef = useRef(null);
 
-  const buildNote = () => ({
+  const isProject = detectProject(content || title);
+
+  const buildNote = (extra = {}) => ({
     id: note?.id || uid(),
     title,
     content,
@@ -30,25 +46,49 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddTasks
     images,
     attachments,
     generatedImage: imageBetaResult,
+    history,
+    lastEditedBy: user,
     createdAt: note?.createdAt || Date.now(),
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
+    ...extra
   });
 
-  // Salvataggio automatico: ogni pochi secondi + quando l'utente smette di scrivere
-  useEffect(() => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      onSave(buildNote());
-    }, 1200);
-    return () => clearTimeout(saveTimer.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, content, checklist, links, images, attachments, imageBetaResult]);
+  const doSave = (recordVersion) => {
+    setSaveStatus('in corso');
+    try {
+      const current = buildNote();
+      let finalHistory = history;
+      if (recordVersion) {
+        const changed = lastSavedRef.current.title !== title || lastSavedRef.current.content !== content;
+        if (changed) {
+          finalHistory = pushNoteVersion({ ...current, history }, user);
+          setHistory(finalHistory);
+          lastSavedRef.current = { title, content };
+        }
+      }
+      onSave({ ...current, history: finalHistory });
+      setSaveError(false);
+      setTimeout(() => setSaveStatus('salvato'), 250);
+    } catch (e) {
+      console.error(e);
+      setSaveError(true);
+      setSaveStatus('salvato');
+    }
+  };
 
   useEffect(() => {
-    const interval = setInterval(() => onSave(buildNote()), 8000);
+    const interval = setInterval(() => doSave(true), 2000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, content, checklist, links, images, attachments, imageBetaResult]);
+
+  useEffect(() => {
+    setSaveStatus('in corso');
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => doSave(true), 900);
+    return () => clearTimeout(saveTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, content]);
 
   const handleAddCheckItem = () => {
     if (!newCheckItem.trim()) return;
@@ -56,10 +96,7 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddTasks
     setNewCheckItem('');
   };
 
-  const toggleCheckItem = (id) => {
-    setChecklist(checklist.map((c) => (c.id === id ? { ...c, done: !c.done } : c)));
-  };
-
+  const toggleCheckItem = (id) => setChecklist(checklist.map((c) => (c.id === id ? { ...c, done: !c.done } : c)));
   const removeCheckItem = (id) => setChecklist(checklist.filter((c) => c.id !== id));
 
   const handleAddLink = () => {
@@ -88,25 +125,53 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddTasks
   };
 
   const handleOrganizeIdeas = () => {
-    const { organizedText, tasks } = organizeIdeas(content || title);
-    setContent(organizedText || content);
-    setAiPreview(tasks.filter((t) => t.date));
+    const result = organizeIdeasV3(content || title);
+    setAiPreview(result);
+    setSuggestedDrafts(result.suggestedTasks.map((t) => ({ ...t, decided: false })));
   };
 
-  const confirmAddTasks = () => {
-    if (aiPreview?.length) onAddTasksToCalendar(aiPreview);
+  const applyAiChanges = () => {
+    if (!aiPreview) return;
+    setContent(aiPreview.organizedText || content);
+    if (aiPreview.autoTasks.length) {
+      onAddAutoTasks(aiPreview.autoTasks);
+      showToast('Attività aggiunta al calendario ✓');
+    }
+    showToast('Nota organizzata correttamente ✓');
     setAiPreview(null);
   };
 
+  const cancelAiChanges = () => setAiPreview(null);
+
+  const decideSuggestion = (index, action, manualDate) => {
+    const draft = suggestedDrafts[index];
+    if (!draft) return;
+    if (action === 'create') {
+      onAddSuggestedTask({ ...draft, date: manualDate || draft.date });
+      showToast('Attività aggiunta al calendario ✓');
+    }
+    setSuggestedDrafts((prev) => prev.map((d, i) => (i === index ? { ...d, decided: true } : d)));
+  };
+
   const handleGenerateImageBeta = () => {
-    // BETA: simulazione mock, come richiesto — nessuna vera generazione IA qui.
     const palette = ['#C65A3A', '#E07A4E', '#E8D6C3', '#A9472B'];
     const seed = (title + content).length;
     setImageBetaResult({
       placeholder: true,
+      visualPrompt: `Concept visivo per: "${title || 'progetto senza titolo'}" — stile minimale, palette calda`,
       color: palette[seed % palette.length],
       label: title || 'Progetto senza titolo'
     });
+    setProjectPromptDismissed(true);
+  };
+
+  const restoreVersion = (index) => {
+    const restored = restoreNoteVersion({ title, content, checklist, links, history }, index);
+    setTitle(restored.title);
+    setContent(restored.content);
+    setChecklist(restored.checklist);
+    setLinks(restored.links);
+    setShowHistory(false);
   };
 
   const exportTXT = () => {
@@ -139,21 +204,23 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddTasks
       y += 4;
       doc.text('Link:', marginX, y);
       y += 6;
-      links.forEach((l) => {
-        doc.text(l, marginX, y);
-        y += 6;
-      });
+      links.forEach((l) => { doc.text(l, marginX, y); y += 6; });
     }
     doc.save(`${title || 'nota'}.pdf`);
   };
 
+  const showProjectPrompt = isProject && !imageBetaResult && !projectPromptDismissed && content.trim().length > 0;
+
   return (
-    <div className="fixed inset-0 z-50 bg-bg dark:bg-dark-bg flex flex-col">
+    <div className="fixed inset-0 z-50 bg-bg dark:bg-dark-bg flex flex-col page-transition">
       <header className="flex items-center justify-between px-4 py-3 border-b border-textSoft/10 dark:border-dark-text/10">
-        <button onClick={() => { onSave(buildNote()); onClose(); }} className="text-primary dark:text-dark-primary font-semibold">
-          ‹ Note
+        <button onClick={() => { doSave(true); onClose(); }} className="text-primary dark:text-dark-primary font-semibold min-h-[44px]">
+          Note
         </button>
-        <button onClick={onDelete} className="text-sm text-primary dark:text-dark-primary font-medium">
+        <span className="text-xs text-textSoft dark:text-dark-text/50">
+          {saveError ? 'Problema di salvataggio. Riprova.' : saveStatus === 'in corso' ? 'Salvataggio in corso…' : 'Salvato ✓'}
+        </span>
+        <button onClick={onDelete} className="text-sm text-primary dark:text-dark-primary font-medium min-h-[44px]">
           Elimina
         </button>
       </header>
@@ -172,52 +239,94 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddTasks
           onChange={(e) => setContent(e.target.value)}
         />
 
-        <button onClick={handleOrganizeIdeas} className="btn-primary w-full">
-          ✨ Sistema le mie idee
+        <div className="text-xs text-textSoft dark:text-dark-text/50 flex justify-between">
+          <span>Creata: {new Date(note?.createdAt || Date.now()).toLocaleString('it-IT')}</span>
+          <button onClick={() => setShowHistory(true)} className="underline">Cronologia ({history.length})</button>
+        </div>
+        {note?.lastEditedBy && (
+          <p className="text-xs text-textSoft dark:text-dark-text/50 -mt-3">Ultima modifica di {note.lastEditedBy}</p>
+        )}
+
+        <button onClick={handleOrganizeIdeas} className="btn-primary w-full min-h-[48px] flex items-center justify-center gap-2">
+          <IconSparkle className="w-5 h-5" /> Sistema la mia nota
         </button>
 
         {aiPreview && (
-          <div className="card p-4">
-            <p className="font-semibold mb-2">Attività riconosciute:</p>
-            {aiPreview.length === 0 && <p className="text-sm text-textSoft dark:text-dark-text/60">Nessuna data/attività trovata.</p>}
-            <ul className="text-sm space-y-1 mb-3">
-              {aiPreview.map((t, i) => (
-                <li key={i}>• {t.title} {t.date ? `— ${new Date(t.date).toLocaleString('it-IT')}` : ''}</li>
-              ))}
-            </ul>
-            {aiPreview.length > 0 && (
-              <button onClick={confirmAddTasks} className="btn-primary w-full text-sm">
-                Aggiungi al calendario
-              </button>
+          <div className="card p-4 space-y-3">
+            <p className="font-semibold">Anteprima modifica IA</p>
+            <pre className="text-sm whitespace-pre-wrap font-sans bg-bg dark:bg-dark-bg rounded-2xl p-3">
+              {aiPreview.organizedText || 'Nessuna modifica proposta: il testo è già chiaro.'}
+            </pre>
+
+            {aiPreview.autoTasks.length > 0 && (
+              <div>
+                <p className="text-sm font-semibold mb-1">Attività rilevate:</p>
+                <ul className="text-sm space-y-1.5">
+                  {aiPreview.autoTasks.map((t, i) => (
+                    <li key={i} className="bg-bg dark:bg-dark-bg rounded-xl p-2">
+                      <p className="font-medium">{t.title}</p>
+                      <p className="text-xs text-textSoft dark:text-dark-text/50">
+                        {new Date(t.date).toLocaleDateString('it-IT')} · {new Date(t.date).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} · {t.category}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
+
+            {suggestedDrafts.length > 0 && (
+              <div>
+                <p className="text-sm font-semibold mb-1">Impegni con data incerta (conferma tu):</p>
+                <div className="space-y-2">
+                  {suggestedDrafts.map((d, i) => !d.decided && (
+                    <SuggestedTaskRow key={i} draft={d} onDecide={(action, manualDate) => decideSuggestion(i, action, manualDate)} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={cancelAiChanges} className="btn-ghost flex-1 text-sm min-h-[44px]">Annulla</button>
+              <button onClick={applyAiChanges} className="btn-primary flex-1 text-sm min-h-[44px]">Applica modifiche</button>
+            </div>
           </div>
         )}
 
-        <div>
-          <button onClick={handleGenerateImageBeta} className="btn-ghost w-full">
-            🎨 Genera immagine del progetto (BETA)
-          </button>
-          <p className="text-xs text-textSoft dark:text-dark-text/50 mt-1 text-center">
-            Versione beta, la qualità delle immagini e il riconoscimento dei progetti sono ancora in fase di miglioramento.
-          </p>
-          {imageBetaResult && (
-            <div
-              className="mt-3 rounded-xl2 h-40 flex items-center justify-center text-white font-semibold text-center px-4"
-              style={{ background: imageBetaResult.color }}
-            >
+        {showProjectPrompt && (
+          <div className="card p-4 space-y-3">
+            <p className="text-sm">
+              Ho rilevato un possibile progetto. Vuoi creare un'immagine rappresentativa?
+            </p>
+            <p className="text-xs text-textSoft dark:text-dark-text/50">BETA - funzione in miglioramento</p>
+            <div className="flex gap-2">
+              <button onClick={() => setProjectPromptDismissed(true)} className="btn-ghost flex-1 text-sm min-h-[44px]">Ignora</button>
+              <button onClick={handleGenerateImageBeta} className="btn-primary flex-1 text-sm min-h-[44px] flex items-center justify-center gap-2">
+                <IconImage className="w-4 h-4" /> Genera immagine
+              </button>
+            </div>
+          </div>
+        )}
+
+        {imageBetaResult && (
+          <div>
+            <div className="rounded-2xl h-40 flex items-center justify-center text-white font-semibold text-center px-4" style={{ background: imageBetaResult.color }}>
               {imageBetaResult.label} (anteprima simulata)
             </div>
-          )}
-        </div>
+            <p className="text-xs text-textSoft dark:text-dark-text/50 mt-1 italic">{imageBetaResult.visualPrompt}</p>
+            <p className="text-xs text-textSoft dark:text-dark-text/50">BETA - funzione in miglioramento</p>
+          </div>
+        )}
 
         <div className="card p-4">
           <p className="font-semibold mb-2">Checklist</p>
           <ul className="space-y-2 mb-3">
             {checklist.map((c) => (
               <li key={c.id} className="flex items-center gap-2">
-                <input type="checkbox" checked={c.done} onChange={() => toggleCheckItem(c.id)} className="accent-primary w-4 h-4" />
+                <input type="checkbox" checked={c.done} onChange={() => toggleCheckItem(c.id)} className="accent-primary w-5 h-5" />
                 <span className={`flex-1 text-sm ${c.done ? 'line-through text-textSoft dark:text-dark-text/40' : ''}`}>{c.text}</span>
-                <button onClick={() => removeCheckItem(c.id)} className="text-textSoft dark:text-dark-text/40 text-sm">✕</button>
+                <button onClick={() => removeCheckItem(c.id)} className="text-textSoft dark:text-dark-text/40 min-w-[44px] min-h-[44px] flex items-center justify-center">
+                  <IconClose className="w-4 h-4" />
+                </button>
               </li>
             ))}
           </ul>
@@ -229,7 +338,7 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddTasks
               onChange={(e) => setNewCheckItem(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddCheckItem()}
             />
-            <button onClick={handleAddCheckItem} className="btn-primary px-4">+</button>
+            <button onClick={handleAddCheckItem} className="btn-primary px-4 min-h-[44px] min-w-[44px]">+</button>
           </div>
         </div>
 
@@ -239,7 +348,9 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddTasks
             {links.map((l, i) => (
               <li key={i} className="flex items-center justify-between">
                 <a href={l} target="_blank" rel="noreferrer" className="text-primary dark:text-dark-primary truncate underline">{l}</a>
-                <button onClick={() => setLinks(links.filter((_, idx) => idx !== i))} className="text-textSoft dark:text-dark-text/40">✕</button>
+                <button onClick={() => setLinks(links.filter((_, idx) => idx !== i))} className="text-textSoft dark:text-dark-text/40 min-w-[44px] min-h-[44px] flex items-center justify-center">
+                  <IconClose className="w-4 h-4" />
+                </button>
               </li>
             ))}
           </ul>
@@ -251,7 +362,7 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddTasks
               onChange={(e) => setNewLink(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddLink()}
             />
-            <button onClick={handleAddLink} className="btn-primary px-4">+</button>
+            <button onClick={handleAddLink} className="btn-primary px-4 min-h-[44px] min-w-[44px]">+</button>
           </div>
         </div>
 
@@ -260,15 +371,15 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddTasks
           <div className="grid grid-cols-3 gap-2 mb-3">
             {images.map((img) => (
               <div key={img.id} className="relative">
-                <img src={img.dataUrl} alt={img.name} className="rounded-xl2 h-20 w-full object-cover" />
+                <img src={img.dataUrl} alt={img.name} className="rounded-2xl h-20 w-full object-cover" />
                 <button
                   onClick={() => setImages(images.filter((i) => i.id !== img.id))}
-                  className="absolute -top-1 -right-1 bg-primary text-white rounded-full w-5 h-5 text-xs"
-                >✕</button>
+                  className="absolute -top-1 -right-1 bg-primary text-white rounded-full w-6 h-6 flex items-center justify-center"
+                ><IconClose className="w-3 h-3" /></button>
               </div>
             ))}
           </div>
-          <button onClick={() => fileInputRef.current?.click()} className="btn-ghost w-full text-sm">+ Aggiungi immagine</button>
+          <button onClick={() => fileInputRef.current?.click()} className="btn-ghost w-full text-sm min-h-[44px]">Aggiungi immagine</button>
           <input ref={fileInputRef} type="file" accept="image/*" multiple hidden onChange={handleImageUpload} />
         </div>
 
@@ -278,18 +389,65 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddTasks
             {attachments.map((a) => (
               <li key={a.id} className="flex items-center justify-between">
                 <span className="truncate">{a.name}</span>
-                <button onClick={() => setAttachments(attachments.filter((x) => x.id !== a.id))} className="text-textSoft dark:text-dark-text/40">✕</button>
+                <button onClick={() => setAttachments(attachments.filter((x) => x.id !== a.id))} className="text-textSoft dark:text-dark-text/40 min-w-[44px] min-h-[44px] flex items-center justify-center">
+                  <IconClose className="w-4 h-4" />
+                </button>
               </li>
             ))}
           </ul>
-          <button onClick={() => attachInputRef.current?.click()} className="btn-ghost w-full text-sm">+ Aggiungi allegato</button>
+          <button onClick={() => attachInputRef.current?.click()} className="btn-ghost w-full text-sm min-h-[44px]">Aggiungi allegato</button>
           <input ref={attachInputRef} type="file" multiple hidden onChange={handleAttachUpload} />
         </div>
 
         <div className="flex gap-3 pb-6">
-          <button onClick={exportTXT} className="btn-ghost flex-1 text-sm">Esporta TXT</button>
-          <button onClick={exportPDF} className="btn-ghost flex-1 text-sm">Esporta PDF</button>
+          <button onClick={exportTXT} className="btn-ghost flex-1 text-sm min-h-[44px]">Esporta TXT</button>
+          <button onClick={exportPDF} className="btn-ghost flex-1 text-sm min-h-[44px]">Esporta PDF</button>
         </div>
+      </div>
+
+      {showHistory && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4">
+          <div className="card w-full max-w-sm p-5 max-h-[70vh] overflow-y-auto">
+            <h3 className="text-lg font-bold mb-3">Cronologia versioni</h3>
+            {history.length === 0 && <p className="text-sm text-textSoft dark:text-dark-text/60">Nessuna versione precedente salvata.</p>}
+            <ul className="space-y-3">
+              {history.map((v, i) => (
+                <li key={i} className="border-b border-textSoft/10 dark:border-dark-text/10 pb-2">
+                  <p className="text-sm font-medium truncate">{v.title || 'Senza titolo'}</p>
+                  <p className="text-xs text-textSoft dark:text-dark-text/50">
+                    {new Date(v.savedAt).toLocaleString('it-IT')} · modificato da {v.editedBy}
+                  </p>
+                  <button onClick={() => restoreVersion(i)} className="text-xs text-primary dark:text-dark-primary underline mt-1">
+                    Ripristina questa versione
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button onClick={() => setShowHistory(false)} className="btn-ghost w-full mt-4 min-h-[44px]">Chiudi</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SuggestedTaskRow({ draft, onDecide }) {
+  const [manualDate, setManualDate] = useState(new Date(draft.date).toISOString().slice(0, 16));
+  const [editing, setEditing] = useState(false);
+
+  return (
+    <div className="bg-bg dark:bg-dark-bg rounded-2xl p-3 text-sm">
+      <p className="font-medium">{draft.title}</p>
+      <p className="text-xs text-textSoft dark:text-dark-text/50 mb-2">
+        Rilevato: "{draft.matchedPhrase}" → proposto {new Date(draft.date).toLocaleString('it-IT')}
+      </p>
+      {editing && (
+        <input type="datetime-local" className="input-field mb-2 text-sm" value={manualDate} onChange={(e) => setManualDate(e.target.value)} />
+      )}
+      <div className="flex gap-2 flex-wrap">
+        <button onClick={() => onDecide('create', editing ? new Date(manualDate).toISOString() : draft.date)} className="btn-primary text-xs px-3 py-2 min-h-[44px]">Crea promemoria</button>
+        <button onClick={() => setEditing((e) => !e)} className="btn-ghost text-xs px-3 py-2 min-h-[44px]">{editing ? 'Usa data proposta' : 'Scegli data'}</button>
+        <button onClick={() => onDecide('ignore')} className="text-xs text-textSoft dark:text-dark-text/50 px-2 min-h-[44px]">Ignora</button>
       </div>
     </div>
   );

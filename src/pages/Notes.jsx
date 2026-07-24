@@ -9,6 +9,8 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
+const PRIORITY_COLOR = { alta: '#C65A3A', media: '#E07A4E', bassa: '#6B5647' };
+
 export default function Notes() {
   const { user } = useAuth();
   const location = useLocation();
@@ -26,14 +28,17 @@ export default function Notes() {
   }, [user]);
 
   useEffect(() => {
-    if (location.state?.createNew) {
-      setActiveNote({});
-    }
+    if (location.state?.createNew) setActiveNote({});
   }, [location.state]);
 
   const persistNotes = (updated) => {
     setNotes(updated);
     saveUserData(user, 'notes', updated);
+  };
+
+  const persistEvents = (updated) => {
+    setEvents(updated);
+    saveUserData(user, 'events', updated);
   };
 
   const handleSaveNote = (note) => {
@@ -58,26 +63,38 @@ export default function Notes() {
     setActiveNote(null);
   };
 
-  const handleAddTasksToCalendar = (tasks) => {
-    const newEvents = tasks.map((t) => ({
-      id: uid(),
-      title: t.title.length > 60 ? t.title.slice(0, 60) + '…' : t.title,
-      date: t.date,
-      description: t.title,
-      color: t.priority ? '#C65A3A' : '#E07A4E',
-      category: 'Da nota',
-      status: 'da fare'
-    }));
-    const updatedEvents = [...newEvents, ...events];
-    setEvents(updatedEvents);
-    saveUserData(user, 'events', updatedEvents);
+  const CATEGORY_COLORS = { Lavoro: '#C65A3A', Personale: '#E07A4E', Urgente: '#A9472B', Altro: '#6B5647' };
 
-    // Crea anche countdown per gli eventi con data
+  const createEventFromTask = (t) => ({
+    id: uid(),
+    title: t.title.length > 60 ? t.title.slice(0, 60) + '…' : t.title,
+    date: t.date,
+    description: t.title,
+    color: CATEGORY_COLORS[t.category] || PRIORITY_COLOR[t.priority] || '#C65A3A',
+    category: t.category || (t.priority === 'alta' ? 'Urgente' : 'Personale'),
+    status: 'da fare'
+  });
+
+  const addCountdownForEvent = (ev) => {
     const countdowns = loadUserData(user, 'countdowns', []);
-    const newCountdowns = newEvents
-      .filter((e) => e.date)
-      .map((e) => ({ id: uid(), title: e.title, date: e.date, color: e.color, icon: '⏳', auto: true }));
-    saveUserData(user, 'countdowns', [...newCountdowns, ...countdowns]);
+    saveUserData(user, 'countdowns', [
+      { id: uid(), title: ev.title, date: ev.date, color: ev.color, icon: '⏳', auto: true },
+      ...countdowns
+    ]);
+  };
+
+  // Impegni con data certa: creati automaticamente
+  const handleAddAutoTasks = (tasks) => {
+    const newEvents = tasks.filter((t) => t.date).map(createEventFromTask);
+    persistEvents([...newEvents, ...events]);
+    newEvents.forEach(addCountdownForEvent);
+  };
+
+  // Impegni con data incerta: creati solo dopo conferma dell'utente
+  const handleAddSuggestedTask = (task) => {
+    const ev = createEventFromTask(task);
+    persistEvents([ev, ...events]);
+    addCountdownForEvent(ev);
   };
 
   const filteredNotes = useMemo(() => {
@@ -99,7 +116,8 @@ export default function Notes() {
           onSave={handleSaveNote}
           onDelete={requestDelete}
           onClose={() => setActiveNote(null)}
-          onAddTasksToCalendar={handleAddTasksToCalendar}
+          onAddAutoTasks={handleAddAutoTasks}
+          onAddSuggestedTask={handleAddSuggestedTask}
         />
         <ConfirmDialog
           open={!!confirmDeleteId}
@@ -113,10 +131,10 @@ export default function Notes() {
   }
 
   return (
-    <div className="px-5 pt-8 pb-6 max-w-2xl mx-auto">
+    <div className="px-5 pt-4 pb-6 max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-extrabold">Note</h1>
-        <button onClick={() => setActiveNote({})} className="btn-primary px-4 py-2 text-sm">+ Nuova</button>
+        <button onClick={() => setActiveNote({})} className="btn-primary px-4 py-2 text-sm min-h-[44px]">+ Nuova</button>
       </div>
 
       <input
@@ -129,11 +147,11 @@ export default function Notes() {
       <div className="flex gap-2 mb-4 text-sm">
         <button
           onClick={() => setSortBy('recent')}
-          className={`px-3 py-1.5 rounded-xl2 ${sortBy === 'recent' ? 'bg-primary text-white' : 'btn-ghost'}`}
+          className={`px-3 py-1.5 rounded-xl2 min-h-[44px] ${sortBy === 'recent' ? 'bg-primary text-white' : 'btn-ghost'}`}
         >Più recenti</button>
         <button
           onClick={() => setSortBy('oldest')}
-          className={`px-3 py-1.5 rounded-xl2 ${sortBy === 'oldest' ? 'bg-primary text-white' : 'btn-ghost'}`}
+          className={`px-3 py-1.5 rounded-xl2 min-h-[44px] ${sortBy === 'oldest' ? 'bg-primary text-white' : 'btn-ghost'}`}
         >Più vecchie</button>
       </div>
 
@@ -151,6 +169,7 @@ export default function Notes() {
             <p className="text-sm text-textSoft dark:text-dark-text/60 truncate">{n.content || '—'}</p>
             <p className="text-xs text-textSoft dark:text-dark-text/40 mt-1">
               {new Date(n.updatedAt || n.createdAt).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              {n.lastEditedBy ? ` · ${n.lastEditedBy}` : ''}
             </p>
           </button>
         ))}

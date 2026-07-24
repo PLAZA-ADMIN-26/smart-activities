@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { loadUserData, saveUserData, moveToTrash } from '../utils/storage';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { IconStar, IconClose } from '../components/Icons';
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-const ICONS = ['⏳', '🎯', '🎉', '✈️', '📌', '💼', '🎂', '📝'];
 const COLORS = ['#C65A3A', '#E07A4E', '#A9472B', '#6B5647'];
 
 function getRemaining(targetISO) {
@@ -54,18 +54,22 @@ export default function Countdown() {
     setConfirmDeleteId(null);
   };
 
+  const toggleImportant = (id) => {
+    persist(countdowns.map((c) => (c.id === id ? { ...c, important: !c.important } : c)));
+  };
+
   return (
-    <div className="px-5 pt-8 pb-6 max-w-2xl mx-auto">
+    <div className="px-5 pt-4 pb-6 max-w-2xl mx-auto page-transition">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-extrabold">Countdown</h1>
-        <button onClick={() => setCreating(true)} className="btn-primary px-4 py-2 text-sm">+ Nuovo</button>
+        <button onClick={() => setCreating(true)} className="btn-primary px-4 py-2 text-sm min-h-[44px]">+ Nuovo</button>
       </div>
 
       <div className="space-y-3">
         {countdowns.length === 0 && (
           <p className="text-sm text-textSoft dark:text-dark-text/60 text-center py-10">Nessun countdown attivo.</p>
         )}
-        {countdowns.map((c) => {
+        {[...countdowns].sort((a, b) => new Date(a.date) - new Date(b.date)).map((c) => {
           const r = getRemaining(c.date);
           const urgent = !r.expired && r.days === 0 && r.hours < 24;
           const soon = !r.expired && r.days < 7;
@@ -74,9 +78,26 @@ export default function Countdown() {
             <div key={c.id} className="card p-4" style={{ borderLeft: `4px solid ${borderColor}` }}>
               <div className="flex items-center justify-between mb-2">
                 <p className="font-semibold flex items-center gap-2">
-                  <span>{c.icon || '⏳'}</span> {c.title}
+                  <span
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                    style={{ background: c.color || '#C65A3A' }}
+                  >
+                    {(c.title || '?').charAt(0).toUpperCase()}
+                  </span>
+                  {c.title}
                 </p>
-                <button onClick={() => setConfirmDeleteId(c.id)} className="text-textSoft dark:text-dark-text/40 text-sm">✕</button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => toggleImportant(c.id)}
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-primary dark:text-dark-primary"
+                    title="Segna come importante (mostrato in homepage)"
+                  >
+                    <IconStar className="w-5 h-5" filled={c.important} />
+                  </button>
+                  <button onClick={() => setConfirmDeleteId(c.id)} className="text-textSoft dark:text-dark-text/40 min-w-[44px] min-h-[44px] flex items-center justify-center">
+                    <IconClose className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               {r.expired ? (
                 <p className="text-sm font-medium text-textSoft dark:text-dark-text/60">Scaduto</p>
@@ -114,12 +135,11 @@ export default function Countdown() {
 function CreateCountdownModal({ onSave, onClose }) {
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
-  const [icon, setIcon] = useState(ICONS[0]);
   const [color, setColor] = useState(COLORS[0]);
 
   const save = () => {
     if (!title || !date) return;
-    onSave({ title, date: new Date(date).toISOString(), icon, color });
+    onSave({ title, date: new Date(date).toISOString(), color });
   };
 
   return (
@@ -129,33 +149,21 @@ function CreateCountdownModal({ onSave, onClose }) {
         <input className="input-field" placeholder="Titolo" value={title} onChange={(e) => setTitle(e.target.value)} />
         <input className="input-field" type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} />
         <div>
-          <p className="text-sm text-textSoft dark:text-dark-text/60 mb-1.5">Icona</p>
-          <div className="flex gap-2 flex-wrap">
-            {ICONS.map((i) => (
-              <button
-                key={i}
-                onClick={() => setIcon(i)}
-                className={`text-xl w-9 h-9 rounded-xl2 flex items-center justify-center ${icon === i ? 'bg-primary/20 ring-2 ring-primary' : 'bg-bg dark:bg-dark-bg'}`}
-              >{i}</button>
-            ))}
-          </div>
-        </div>
-        <div>
           <p className="text-sm text-textSoft dark:text-dark-text/60 mb-1.5">Colore</p>
           <div className="flex gap-2">
             {COLORS.map((c) => (
               <button
                 key={c}
                 onClick={() => setColor(c)}
-                className="w-8 h-8 rounded-full"
+                className="w-9 h-9 rounded-full"
                 style={{ background: c, outline: color === c ? '2px solid #2F241D' : 'none' }}
               />
             ))}
           </div>
         </div>
         <div className="flex gap-2 pt-2">
-          <button onClick={onClose} className="btn-ghost flex-1">Annulla</button>
-          <button onClick={save} className="btn-primary flex-1">Crea</button>
+          <button onClick={onClose} className="btn-ghost flex-1 min-h-[44px]">Annulla</button>
+          <button onClick={save} className="btn-primary flex-1 min-h-[44px]">Crea</button>
         </div>
       </div>
     </div>

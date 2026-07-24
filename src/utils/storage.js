@@ -55,6 +55,37 @@ export function permanentlyDeleteFromTrash(user, index) {
   saveUserData(user, 'trash', trash);
 }
 
+// Cronologia versioni di una nota: mantiene le ultime 10 istantanee
+// così da poter ripristinare una versione precedente.
+const MAX_NOTE_VERSIONS = 10;
+
+export function pushNoteVersion(note, editedBy) {
+  const history = note.history || [];
+  const snapshot = {
+    title: note.title,
+    content: note.content,
+    checklist: note.checklist,
+    links: note.links,
+    editedBy,
+    savedAt: Date.now()
+  };
+  const updatedHistory = [snapshot, ...history].slice(0, MAX_NOTE_VERSIONS);
+  return updatedHistory;
+}
+
+export function restoreNoteVersion(note, versionIndex) {
+  const version = note.history?.[versionIndex];
+  if (!version) return note;
+  return {
+    ...note,
+    title: version.title,
+    content: version.content,
+    checklist: version.checklist,
+    links: version.links,
+    updatedAt: Date.now()
+  };
+}
+
 // Backup completo (tutte le sezioni) in un unico oggetto JSON
 export function exportFullBackup(user) {
   const data = {

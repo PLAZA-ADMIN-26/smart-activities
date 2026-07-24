@@ -28,19 +28,46 @@ body {
 }
 
 .card {
-  @apply bg-card dark:bg-dark-card rounded-xl3 shadow-soft dark:shadow-softDark;
+  @apply bg-card dark:bg-dark-card rounded-xl3 shadow-soft dark:shadow-softDark transition-shadow duration-300;
+  animation: fadeInUp 0.35s ease both;
 }
 
 .btn-primary {
-  @apply bg-primary hover:bg-primaryHover dark:bg-dark-primary text-white font-semibold rounded-xl2 px-5 py-3 transition-colors active:scale-[0.98];
+  @apply bg-primary hover:bg-primaryHover dark:bg-dark-primary text-white font-semibold rounded-full px-5 py-3 transition-all duration-200 active:scale-[0.97];
 }
 
 .btn-ghost {
-  @apply bg-transparent border border-textSoft/20 dark:border-dark-text/20 text-textMain dark:text-dark-text rounded-xl2 px-5 py-3 transition-colors active:scale-[0.98];
+  @apply bg-transparent border border-textSoft/15 dark:border-dark-text/15 text-textMain dark:text-dark-text rounded-full px-5 py-3 transition-all duration-200 active:scale-[0.97] hover:border-textSoft/30;
 }
 
 .input-field {
-  @apply w-full rounded-xl2 border border-textSoft/20 dark:border-dark-text/20 bg-bg dark:bg-dark-bg px-4 py-3 text-textMain dark:text-dark-text placeholder:text-textSoft/60 focus:outline-none focus:ring-2 focus:ring-primary/50;
+  @apply w-full rounded-2xl border border-textSoft/15 dark:border-dark-text/15 bg-bg dark:bg-dark-bg px-4 py-3 text-textMain dark:text-dark-text placeholder:text-textSoft/50 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow duration-200;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease both;
+}
+
+.animate-fade-in-slow {
+  animation: fadeIn 0.7s ease both;
+}
+
+.page-transition {
+  animation: fadeIn 0.25s ease both;
+}
+
+.toast-pop {
+  animation: fadeInUp 0.25s ease both;
 }
 
 @media (max-width: 390px) {

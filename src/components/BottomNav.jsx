@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom';
+import { IconHome, IconNote, IconCalendar, IconHourglass, IconSettings } from './Icons';
 
 const TABS = [
-  { to: '/', label: 'Home', icon: '🏠', end: true },
-  { to: '/note', label: 'Note', icon: '📝' },
-  { to: '/calendario', label: 'Calendario', icon: '📅' },
-  { to: '/countdown', label: 'Countdown', icon: '⏳' },
-  { to: '/impostazioni', label: 'Impostazioni', icon: '⚙️' }
+  { to: '/', label: 'Home', Icon: IconHome, end: true },
+  { to: '/note', label: 'Note', Icon: IconNote },
+  { to: '/calendario', label: 'Calendario', Icon: IconCalendar },
+  { to: '/countdown', label: 'Countdown', Icon: IconHourglass },
+  { to: '/impostazioni', label: 'Impostazioni', Icon: IconSettings }
 ];
 
 export default function BottomNav() {
@@ -21,7 +22,7 @@ export default function BottomNav() {
               to={tab.to}
               end={tab.end}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center gap-1 py-2.5 text-xs font-medium transition-colors relative ${
+                `flex flex-col items-center justify-center gap-1 py-2.5 text-xs font-medium transition-colors duration-200 relative min-h-[56px] ${
                   isActive ? 'text-primary dark:text-dark-primary' : 'text-textSoft dark:text-dark-text/60'
                 }`
               }
@@ -29,9 +30,9 @@ export default function BottomNav() {
               {({ isActive }) => (
                 <>
                   {isActive && (
-                    <span className="absolute top-0 h-1 w-8 rounded-full bg-primary dark:bg-dark-primary" />
+                    <span className="absolute top-0 h-1 w-8 rounded-full bg-primary dark:bg-dark-primary transition-all duration-200" />
                   )}
-                  <span className="text-xl leading-none">{tab.icon}</span>
+                  <tab.Icon className="w-6 h-6" />
                   <span>{tab.label}</span>
                 </>
               )}

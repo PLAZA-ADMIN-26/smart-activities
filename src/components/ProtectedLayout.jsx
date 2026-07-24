@@ -1,6 +1,8 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import BottomNav from './BottomNav';
+import TopBar from './TopBar';
+import QuickActionButton from './QuickActionButton';
 
 export default function ProtectedLayout() {
   const { user, ready } = useAuth();
@@ -10,7 +12,9 @@ export default function ProtectedLayout() {
 
   return (
     <div className="min-h-screen pb-20">
+      <TopBar />
       <Outlet />
+      <QuickActionButton />
       <BottomNav />
     </div>
   );
