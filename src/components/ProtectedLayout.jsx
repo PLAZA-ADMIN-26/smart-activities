@@ -11,7 +11,7 @@ export default function ProtectedLayout() {
   if (!user) return <Navigate to="/login" replace />;
 
   return (
-    <div className="min-h-screen pb-20">
+    <div className="min-h-dvh pb-20">
       <TopBar />
       <Outlet />
       <QuickActionButton />

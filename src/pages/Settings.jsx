@@ -21,7 +21,7 @@ export default function Settings() {
   const { user, logout } = useAuth();
   const { mode, setMode } = useTheme();
   const { showToast } = useToast();
-  const [notifSettings, setNotifSettings] = useState({ enabled: false, sound: true, reminders: [15, 60] });
+  const [notifSettings, setNotifSettings] = useState({ enabled: false, sound: false, reminders: [15, 60] });
   const [permission, setPermission] = useState(getNotificationStatus());
   const [confirmClear, setConfirmClear] = useState(false);
   const [importMsg, setImportMsg] = useState('');
@@ -31,7 +31,7 @@ export default function Settings() {
   useEffect(() => {
     if (!user) return;
     const s = loadUserData(user, 'settings', {});
-    setNotifSettings(s.notifications || { enabled: false, sound: true, reminders: [15, 60] });
+    setNotifSettings(s.notifications || { enabled: false, sound: false, reminders: [15, 60] });
   }, [user]);
 
   const persistNotif = (updated) => {
@@ -249,11 +249,11 @@ function Toggle({ checked, onChange, disabled }) {
     <button
       onClick={onChange}
       disabled={disabled}
-      className={`shrink-0 self-center w-12 h-7 rounded-full relative transition-colors duration-200 disabled:opacity-40 ${checked ? 'bg-primary' : 'bg-textSoft/25'}`}
+      className={`shrink-0 self-center w-12 h-7 rounded-full flex items-center px-0.5 overflow-hidden transition-colors duration-200 disabled:opacity-40 ${
+        checked ? 'bg-primary justify-end' : 'bg-textSoft/25 justify-start'
+      }`}
     >
-      <span
-        className={`absolute top-0.5 w-6 h-6 rounded-full bg-white transition-transform duration-200 ${checked ? 'translate-x-5' : 'translate-x-0.5'}`}
-      />
+      <span className="w-6 h-6 rounded-full bg-white shadow transition-all duration-200" />
     </button>
   );
 }

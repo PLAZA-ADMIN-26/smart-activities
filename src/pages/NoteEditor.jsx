@@ -303,14 +303,17 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddAutoT
 
   return (
     <div className="fixed inset-0 z-50 bg-bg dark:bg-dark-bg flex flex-col page-transition">
-      <header className="flex items-center justify-between px-4 py-3 border-b border-textSoft/10 dark:border-dark-text/10">
-        <button onClick={() => { doSave(true); onClose(); }} className="text-primary dark:text-dark-primary font-semibold min-h-[44px]">
+      <header
+        className="flex items-center justify-between px-4 border-b border-textSoft/10 dark:border-dark-text/10"
+        style={{ paddingTop: 'calc(12px + env(safe-area-inset-top))', paddingBottom: '12px' }}
+      >
+        <button onClick={() => { doSave(true); onClose(); }} className="text-primary dark:text-dark-primary font-semibold min-h-[44px] shrink-0">
           Note
         </button>
-        <span className="text-xs text-textSoft dark:text-dark-text/50">
-          {saveError ? 'Problema di salvataggio. Riprova.' : saveStatus === 'in corso' ? 'Salvataggio in corso…' : 'Salvato ✓'}
+        <span className="text-[11px] text-textSoft dark:text-dark-text/50 truncate px-2 text-center flex-1 min-w-0">
+          {saveError ? 'Problema di salvataggio' : saveStatus === 'in corso' ? 'Salvataggio in corso…' : 'Salvato ✓'}
         </span>
-        <button onClick={onDelete} className="text-sm text-primary dark:text-dark-primary font-medium min-h-[44px]">
+        <button onClick={onDelete} className="text-sm text-primary dark:text-dark-primary font-medium min-h-[44px] shrink-0">
           Elimina
         </button>
       </header>
@@ -346,7 +349,7 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddAutoT
             <div className="flex items-center justify-between">
               <p className="font-semibold">Anteprima modifica IA</p>
               <span className="text-[10px] uppercase tracking-wide text-textSoft dark:text-dark-text/40">
-                {aiPreview.source === 'ai' ? 'Generata da Gemini' : 'Motore locale (offline)'}
+                {aiPreview.source === 'ai' ? 'Generata da Groq' : 'Motore locale (offline)'}
               </span>
             </div>
             <pre className="text-sm whitespace-pre-wrap font-sans bg-bg dark:bg-dark-bg rounded-2xl p-3">
@@ -501,7 +504,7 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddAutoT
       </div>
 
       {showHistory && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
           <div className="card w-full max-w-sm p-5 max-h-[70vh] overflow-y-auto">
             <h3 className="text-lg font-bold mb-3">Cronologia versioni</h3>
             {history.length === 0 && <p className="text-sm text-textSoft dark:text-dark-text/60">Nessuna versione precedente salvata.</p>}

@@ -72,6 +72,17 @@ body {
   animation: fadeInUp 0.25s ease both;
 }
 
-@media (max-width: 390px) {
+/* Telefoni molto compatti (es. iPhone SE, ~375px e sotto) */
+@media (max-width: 374px) {
+  html { font-size: 13.5px; }
+}
+
+/* Telefoni piccoli/medi */
+@media (min-width: 375px) and (max-width: 390px) {
   html { font-size: 15px; }
+}
+
+/* Telefoni grandi e tablet in verticale: leggermente più spazio, non più grande */
+@media (min-width: 431px) {
+  html { font-size: 16.5px; }
 }

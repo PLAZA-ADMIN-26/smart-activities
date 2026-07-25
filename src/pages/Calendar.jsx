@@ -212,7 +212,7 @@ function MonthView({ cursor, setCursor, eventsByDay, onDropOnDay, onSelectDay })
           <IconChevronRight className="w-5 h-5" />
         </button>
       </div>
-      <div className="grid grid-cols-7 text-xs text-center text-textSoft dark:text-dark-text/50 mb-1.5 font-medium">
+      <div className="grid grid-cols-7 gap-1.5 text-xs text-center text-textSoft dark:text-dark-text/50 mb-1.5 font-medium">
         {WEEKDAY_LABELS.map((d, i) => <div key={i}>{d}</div>)}
       </div>
       <div className="grid grid-cols-7 gap-1.5">
@@ -225,7 +225,7 @@ function MonthView({ cursor, setCursor, eventsByDay, onDropOnDay, onSelectDay })
               type="button"
               disabled={!day}
               onClick={() => day && onSelectDay(day)}
-              className={`aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 min-w-0 transition-colors duration-150 ${
+              className={`relative aspect-square rounded-2xl min-w-0 transition-colors duration-150 ${
                 day ? 'bg-card dark:bg-dark-card active:bg-primary/10 dark:active:bg-dark-primary/15' : ''
               }`}
               onDragOver={(e) => day && e.preventDefault()}
@@ -237,14 +237,16 @@ function MonthView({ cursor, setCursor, eventsByDay, onDropOnDay, onSelectDay })
             >
               {day && (
                 <>
-                  <span
-                    className={`text-base font-bold leading-none flex items-center justify-center w-7 h-7 rounded-full ${
-                      isToday ? 'bg-primary dark:bg-dark-primary text-white' : ''
-                    }`}
-                  >
-                    {day.getDate()}
+                  <span className="absolute inset-0 flex items-center justify-center">
+                    <span
+                      className={`text-base font-bold leading-none flex items-center justify-center w-7 h-7 rounded-full ${
+                        isToday ? 'bg-primary dark:bg-dark-primary text-white' : ''
+                      }`}
+                    >
+                      {day.getDate()}
+                    </span>
                   </span>
-                  <div className="flex gap-0.5 h-1.5 items-center">
+                  <div className="absolute bottom-1.5 left-0 right-0 flex gap-0.5 items-center justify-center h-1.5">
                     {dayEvents.slice(0, 3).map((e) => (
                       <span
                         key={e.id}
@@ -359,7 +361,7 @@ function AgendaView({ events, onSelectEvent, onToggleStatus }) {
 function DayDetailModal({ day, events, onClose, onSelectEvent, onToggleStatus, onAddEvent }) {
   const sorted = [...events].sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
       <div className="card w-full max-w-sm p-5 max-h-[75vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold capitalize">
@@ -431,7 +433,7 @@ function EventModal({ event, onSave, onDelete, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
       <div className="card w-full max-w-sm p-5 space-y-3">
         <h3 className="text-lg font-bold">{event.id ? 'Modifica evento' : 'Nuovo evento'}</h3>
         <input className="input-field" placeholder="Titolo" value={title} onChange={(e) => setTitle(e.target.value)} />

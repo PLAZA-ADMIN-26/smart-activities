@@ -24,7 +24,10 @@ export default function Login() {
 
   if (welcomeUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-bg dark:bg-dark-bg">
+      <div
+        className="min-h-dvh flex items-center justify-center bg-bg dark:bg-dark-bg px-6"
+        style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
         <div className="animate-fade-in-slow text-center px-6">
           <img src="/icons/logo-96.png" alt="Prioritize" className="w-14 h-14 mx-auto mb-5 rounded-2xl object-cover" />
           <h1 className="text-2xl font-extrabold text-textMain dark:text-dark-text">
@@ -36,7 +39,10 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-bg dark:bg-dark-bg">
+    <div
+      className="min-h-dvh flex flex-col items-center justify-center px-6 bg-bg dark:bg-dark-bg"
+      style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
       <div className="w-full max-w-sm animate-fade-in">
         <div className="text-center mb-10">
           <img src="/icons/logo-96.png" alt="Prioritize" className="mx-auto mb-5 w-16 h-16 rounded-2xl object-cover shadow-soft" />

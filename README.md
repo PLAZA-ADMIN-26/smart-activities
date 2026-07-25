@@ -43,18 +43,21 @@
   locali) per correggere grammatica e separare titolo/data/ora/categoria delle
   attività — vedi sezione dedicata più sotto per attivarla
 
-## IA reale delle note — Gemini gratuito (opzionale, consigliata)
+## IA reale delle note — Groq gratuito (opzionale, consigliata)
 
-"Sistema la mia nota" ora può usare davvero Google Gemini per correggere
-grammatica, riorganizzare il contenuto e separare titolo/data/ora/categoria
-delle attività, con qualità molto superiore all'euristica locale — e senza
-costi grazie al livello gratuito di Gemini. Per attivarla:
+"Sistema la mia nota" ora può usare davvero un modello IA (Llama 3.3 via Groq)
+per correggere grammatica, riorganizzare il contenuto e separare
+titolo/data/ora/categoria delle attività, con qualità molto superiore
+all'euristica locale — gratis, e senza il percorso macchinoso di Google Cloud.
+Per attivarla:
 
-1. Vai su https://aistudio.google.com, accedi con un account Google e crea
-   una chiave API gratuita (sezione "Get API key"). Non serve carta di credito.
-2. Su Vercel: apri il progetto → Settings → Environment Variables → aggiungi
-   `GEMINI_API_KEY` con il valore della tua chiave → Redeploy.
-3. Fatto. Da quel momento la funzione userà Gemini tramite una funzione
+1. Vai su https://console.groq.com, crea un account (email o Google, un
+   minuto) e vai su **"API Keys"** nel menu laterale.
+2. Clicca **"Create API Key"**, dai un nome qualsiasi, copia la chiave (inizia
+   con `gsk_...`). Nessun progetto da creare, nessuna carta richiesta.
+3. Su Vercel: apri il progetto → Settings → Environment Variables → aggiungi
+   `GROQ_API_KEY` con il valore della tua chiave → Redeploy.
+4. Fatto. Da quel momento la funzione userà Groq tramite una funzione
    serverless (`api/organize-note.js`) che tiene la chiave sempre lato
    server, mai esposta al browser.
 
@@ -62,19 +65,19 @@ costi grazie al livello gratuito di Gemini. Per attivarla:
 automaticamente il motore euristico locale (stessa logica di prima, basata su
 regole), con un'etichetta "Motore locale (offline)" nell'anteprima così sai
 sempre quale versione stai usando. Con la chiave attiva vedrai invece
-"Generata da Gemini".
+"Generata da Groq".
 
-Nota onesta: i limiti esatti del livello gratuito di Gemini e i nomi dei
-modelli disponibili cambiano nel tempo — verifica i valori aggiornati su
-https://ai.google.dev prima di contarci per un uso molto intensivo. Per l'uso
-di una o due persone che organizzano qualche nota al giorno, il livello
-gratuito è ampiamente sufficiente. Se in futuro il modello di default
-(`gemini-2.0-flash`) venisse rinominato o deprecato, basta impostare la
-variabile `GEMINI_MODEL` su Vercel con il nuovo nome, senza toccare il codice.
+Nota onesta: i limiti esatti del livello gratuito e i nomi dei modelli
+disponibili su Groq cambiano nel tempo — verifica i valori aggiornati su
+https://console.groq.com/docs/models prima di contarci per un uso molto
+intensivo. Per l'uso di una o due persone che organizzano qualche nota al
+giorno, il livello gratuito è ampiamente sufficiente e le risposte sono anche
+molto veloci (Groq è specializzato in velocità di inferenza). Se in futuro il
+modello di default (`llama-3.3-70b-versatile`) venisse deprecato, basta
+impostare la variabile `GROQ_MODEL` su Vercel con il nuovo nome, senza
+toccare il codice.
 
-Nota sui costi: restando nel livello gratuito di Gemini non paghi nulla. Se in
-futuro superassi i limiti gratuiti, Google richiede di passare a un piano a
-consumo — controlla i prezzi aggiornati su https://ai.google.dev/pricing.
+Nota sui costi: restando nel livello gratuito non paghi nulla.
 
 ## Limite onesto che resta
 

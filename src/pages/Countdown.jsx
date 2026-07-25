@@ -25,9 +25,11 @@ function MiniToggle({ checked, onChange, disabled }) {
     <button
       onClick={onChange}
       disabled={disabled}
-      className={`shrink-0 w-9 h-5 rounded-full relative transition-colors duration-200 disabled:opacity-40 ${checked ? 'bg-primary dark:bg-dark-primary' : 'bg-textSoft/25'}`}
+      className={`shrink-0 w-9 h-5 rounded-full flex items-center px-0.5 overflow-hidden transition-colors duration-200 disabled:opacity-40 ${
+        checked ? 'bg-primary dark:bg-dark-primary justify-end' : 'bg-textSoft/25 justify-start'
+      }`}
     >
-      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${checked ? 'translate-x-4' : 'translate-x-0.5'}`} />
+      <span className="w-4 h-4 rounded-full bg-white shadow transition-all duration-200" />
     </button>
   );
 }
@@ -182,7 +184,7 @@ function CreateCountdownModal({ onSave, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
       <div className="card w-full max-w-sm p-5 space-y-3">
         <h3 className="text-lg font-bold">Nuovo countdown</h3>
         <input className="input-field" placeholder="Titolo" value={title} onChange={(e) => setTitle(e.target.value)} />

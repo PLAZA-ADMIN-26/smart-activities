@@ -44,7 +44,7 @@ function normalizeAiResult(aiResult, rawText) {
   };
 }
 
-// Prova a organizzare la nota con una vera chiamata a Gemini (via funzione serverless).
+// Prova a organizzare la nota con una vera chiamata a Groq (via funzione serverless).
 // Se la chiave API non è configurata, la rete non è disponibile, o la risposta
 // non è valida, ricade automaticamente sul motore euristico locale — l'utente
 // ottiene comunque un risultato, solo di qualità un po' più semplice.

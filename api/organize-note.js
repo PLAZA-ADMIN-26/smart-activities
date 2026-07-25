@@ -1,16 +1,14 @@
-// Funzione serverless (Vercel Functions). Chiama l'API di Google Gemini con la
-// chiave conservata SOLO lato server (variabile d'ambiente GEMINI_API_KEY),
-// mai esposta al browser. Se la chiave non è configurata, o la chiamata
-// fallisce per qualsiasi motivo, risponde con needsFallback:true e il
-// frontend userà automaticamente il motore euristico locale
-// (src/utils/ideaOrganizer.js) — il sito funziona comunque anche senza chiave.
+// Funzione serverless (Vercel Functions). Chiama l'API di Groq con la chiave
+// conservata SOLO lato server (variabile d'ambiente GROQ_API_KEY), mai
+// esposta al browser. Se la chiave non è configurata, o la chiamata fallisce
+// per qualsiasi motivo, risponde con needsFallback:true e il frontend userà
+// automaticamente il motore euristico locale (src/utils/ideaOrganizer.js) —
+// il sito funziona comunque anche senza chiave.
 //
-// Nota: i nomi dei modelli Gemini e i limiti del livello gratuito cambiano nel
-// tempo. Se in futuro questo modello risultasse deprecato, aggiorna solo la
-// variabile d'ambiente GEMINI_MODEL (senza toccare il codice) consultando
-// https://ai.google.dev per il nome aggiornato.
+// Groq espone un'API compatibile con il formato OpenAI, quindi la chiamata
+// usa /chat/completions con response_format json_object.
 
-const DEFAULT_MODEL = 'gemini-2.0-flash';
+const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
 
 const SYSTEM_PROMPT = `Sei un assistente che riorganizza note personali scritte in italiano.
 Regole:
@@ -42,9 +40,9 @@ export default async function handler(req, res) {
     return;
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    res.status(200).json({ needsFallback: true, reason: 'GEMINI_API_KEY non configurata' });
+    res.status(200).json({ needsFallback: true, reason: 'GROQ_API_KEY non configurata' });
     return;
   }
 
@@ -55,36 +53,35 @@ export default async function handler(req, res) {
       return;
     }
 
-    const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
+    const model = process.env.GROQ_MODEL || DEFAULT_MODEL;
     const today = new Date().toISOString();
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [
-            { role: 'user', parts: [{ text: `Data odierna: ${today}\n\nNota da organizzare:\n"""${text}"""` }] }
-          ],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.3
-          }
-        })
-      }
-    );
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.3,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: `Data odierna: ${today}\n\nNota da organizzare:\n"""${text}"""` }
+        ]
+      })
+    });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error('Errore Gemini API:', response.status, errText);
+      console.error('Errore Groq API:', response.status, errText);
       res.status(200).json({ needsFallback: true, reason: 'Errore del servizio IA' });
       return;
     }
 
     const data = await response.json();
-    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    const raw = data.choices?.[0]?.message?.content?.trim();
 
     if (!raw) {
       res.status(200).json({ needsFallback: true, reason: 'Risposta IA vuota' });
@@ -100,7 +97,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    res.status(200).json({ needsFallback: false, result: parsed, provider: 'gemini' });
+    res.status(200).json({ needsFallback: false, result: parsed, provider: 'groq' });
   } catch (e) {
     console.error('Errore organize-note:', e);
     res.status(200).json({ needsFallback: true, reason: 'Errore imprevisto' });
