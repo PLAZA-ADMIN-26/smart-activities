@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useModalState } from '../context/ModalStateContext';
 import { loadUserData, saveUserData, moveToTrash } from '../utils/storage';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { IconStar, IconClose } from '../components/Icons';
@@ -39,6 +40,12 @@ export default function Countdown() {
   const [countdowns, setCountdowns] = useState([]);
   const [creating, setCreating] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const { setModalOpen } = useModalState();
+
+  useEffect(() => {
+    setModalOpen(!!(creating || confirmDeleteId));
+    return () => setModalOpen(false);
+  }, [creating, confirmDeleteId, setModalOpen]);
   const [, forceTick] = useState(0);
 
   useEffect(() => {
@@ -185,7 +192,7 @@ function CreateCountdownModal({ onSave, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
-      <div className="card w-full max-w-sm p-5 space-y-3">
+      <div className="card w-full max-w-sm p-5 space-y-3 overflow-hidden">
         <h3 className="text-lg font-bold">Nuovo countdown</h3>
         <input className="input-field" placeholder="Titolo" value={title} onChange={(e) => setTitle(e.target.value)} />
         <input className="input-field" type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} />

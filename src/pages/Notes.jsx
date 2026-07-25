@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useModalState } from '../context/ModalStateContext';
 import { loadUserData, saveUserData, moveToTrash } from '../utils/storage';
 import NoteEditor from './NoteEditor';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -20,6 +21,12 @@ export default function Notes() {
   const [sortBy, setSortBy] = useState('recent');
   const [activeNote, setActiveNote] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const { setModalOpen } = useModalState();
+
+  useEffect(() => {
+    setModalOpen(!!activeNote || !!confirmDeleteId);
+    return () => setModalOpen(false);
+  }, [activeNote, confirmDeleteId, setModalOpen]);
 
   useEffect(() => {
     if (!user) return;

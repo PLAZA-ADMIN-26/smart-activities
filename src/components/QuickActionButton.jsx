@@ -1,14 +1,17 @@
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { IconPlus, IconNote, IconCalendar } from './Icons';
+import { useModalState } from '../context/ModalStateContext';
 
 export default function QuickActionButton() {
   const navigate = useNavigate();
-  const location = useLocation();
+  const { modalOpen } = useModalState();
   const [open, setOpen] = useState(false);
 
-  // Non mostrare il FAB dentro l'editor nota o sopra i modali a schermo intero
-  if (location.pathname === '/note' && location.state?.editing) return null;
+  // Nascosto del tutto (non solo dietro l'overlay) quando un modale è aperto
+  // in qualsiasi pagina, così non può mai restare visibile sopra i pulsanti
+  // di un modale
+  if (modalOpen) return null;
 
   return (
     <div className="fixed right-5 z-40" style={{ bottom: 'calc(82px + env(safe-area-inset-bottom))' }}>

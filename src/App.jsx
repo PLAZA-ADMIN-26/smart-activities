@@ -2,6 +2,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
+import { ModalStateProvider } from './context/ModalStateContext';
 import ProtectedLayout from './components/ProtectedLayout';
 import NotificationWatcher from './components/NotificationWatcher';
 import Login from './pages/Login';
@@ -22,20 +23,22 @@ export default function App() {
     <AuthProvider>
       <ThemeProvider>
         <ToastProvider>
-          <NotificationWatcher />
-          <HashRouter>
-            <Routes>
-              <Route path="/login" element={<LoginRoute />} />
-              <Route element={<ProtectedLayout />}>
-                <Route path="/" element={<Home />} />
-                <Route path="/note" element={<Notes />} />
-                <Route path="/calendario" element={<CalendarPage />} />
-                <Route path="/countdown" element={<Countdown />} />
-                <Route path="/impostazioni" element={<Settings />} />
-              </Route>
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </HashRouter>
+          <ModalStateProvider>
+            <NotificationWatcher />
+            <HashRouter>
+              <Routes>
+                <Route path="/login" element={<LoginRoute />} />
+                <Route element={<ProtectedLayout />}>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/note" element={<Notes />} />
+                  <Route path="/calendario" element={<CalendarPage />} />
+                  <Route path="/countdown" element={<Countdown />} />
+                  <Route path="/impostazioni" element={<Settings />} />
+                </Route>
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </HashRouter>
+          </ModalStateProvider>
         </ToastProvider>
       </ThemeProvider>
     </AuthProvider>
