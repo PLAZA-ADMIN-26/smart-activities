@@ -176,15 +176,24 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddAutoT
   };
 
   const handleGenerateImageBeta = () => {
-    const palette = ['#C65A3A', '#E07A4E', '#E8D6C3', '#A9472B'];
-    const seed = (title + content).length;
+    // Costruisce un prompt descrittivo a partire dal contenuto della nota
+    const subject = (title || content || 'idea creativa').slice(0, 200);
+    const prompt = `${subject}, digital concept art, minimal modern illustration, warm terracotta and cream color palette, clean composition`;
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=640&height=400&nologo=true&seed=${Date.now()}`;
+
     setImageBetaResult({
-      placeholder: true,
-      visualPrompt: `Concept visivo per: "${title || 'progetto senza titolo'}" — stile minimale, palette calda`,
-      color: palette[seed % palette.length],
+      loading: true,
+      imageUrl,
+      visualPrompt: prompt,
       label: title || 'Progetto senza titolo'
     });
     setProjectPromptDismissed(true);
+  };
+
+  const handleImageLoadError = () => {
+    // Se il servizio gratuito di generazione non risponde, mostriamo un
+    // riquadro chiaro invece di un'immagine rotta
+    setImageBetaResult((prev) => (prev ? { ...prev, loading: false, failed: true } : prev));
   };
 
   const restoreVersion = (index) => {
@@ -411,11 +420,28 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddAutoT
 
         {imageBetaResult && (
           <div>
-            <div className="rounded-2xl h-40 flex items-center justify-center text-white font-semibold text-center px-4" style={{ background: imageBetaResult.color }}>
-              {imageBetaResult.label} (anteprima simulata)
-            </div>
+            {imageBetaResult.failed ? (
+              <div className="rounded-2xl h-40 flex items-center justify-center text-center px-4 bg-card dark:bg-dark-card text-textSoft dark:text-dark-text/60 text-sm">
+                Il servizio di generazione immagini non ha risposto. Riprova tra poco.
+              </div>
+            ) : (
+              <div className="relative rounded-2xl h-56 overflow-hidden bg-card dark:bg-dark-card">
+                {imageBetaResult.loading && (
+                  <div className="absolute inset-0 flex items-center justify-center text-sm text-textSoft dark:text-dark-text/50">
+                    Genero l'immagine…
+                  </div>
+                )}
+                <img
+                  src={imageBetaResult.imageUrl}
+                  alt={imageBetaResult.label}
+                  className={`w-full h-full object-cover transition-opacity duration-300 ${imageBetaResult.loading ? 'opacity-0' : 'opacity-100'}`}
+                  onLoad={() => setImageBetaResult((prev) => (prev ? { ...prev, loading: false } : prev))}
+                  onError={handleImageLoadError}
+                />
+              </div>
+            )}
             <p className="text-xs text-textSoft dark:text-dark-text/50 mt-1 italic">{imageBetaResult.visualPrompt}</p>
-            <p className="text-xs text-textSoft dark:text-dark-text/50">BETA - funzione in miglioramento</p>
+            <p className="text-xs text-textSoft dark:text-dark-text/50">BETA - generazione immagine sperimentale, la qualità può variare</p>
           </div>
         )}
 
