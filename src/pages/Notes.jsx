@@ -173,7 +173,7 @@ export default function Notes() {
             className="card p-4 w-full text-left block"
           >
             <p className="font-semibold truncate">{n.title || 'Senza titolo'}</p>
-            <p className="text-sm text-textSoft dark:text-dark-text/60 truncate">{n.content || '—'}</p>
+            {n.content && <p className="text-sm text-textSoft dark:text-dark-text/60 truncate">{n.content}</p>}
             <p className="text-xs text-textSoft dark:text-dark-text/40 mt-1">
               {new Date(n.updatedAt || n.createdAt).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
               {n.lastEditedBy ? ` · ${n.lastEditedBy}` : ''}

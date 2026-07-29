@@ -45,11 +45,15 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddAutoT
   const lastSavedRef = useRef({ title, content });
   const fileInputRef = useRef(null);
   const attachInputRef = useRef(null);
+  // L'id viene deciso UNA SOLA VOLTA all'apertura dell'editor e non cambia mai
+  // più durante la sessione, altrimenti ogni salvataggio automatico creerebbe
+  // una nota duplicata invece di aggiornare quella esistente.
+  const noteIdRef = useRef(note?.id || uid());
 
   const isProject = detectProject(content || title);
 
   const buildNote = (extra = {}) => ({
-    id: note?.id || uid(),
+    id: noteIdRef.current,
     title,
     content,
     checklist,
