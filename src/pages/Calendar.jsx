@@ -368,7 +368,7 @@ function AgendaView({ events, onSelectEvent, onToggleStatus }) {
 function DayDetailModal({ day, events, onClose, onSelectEvent, onToggleStatus, onAddEvent }) {
   const sorted = [...events].sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
       <div className="card w-full max-w-sm p-5 max-h-[75vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold capitalize">
@@ -440,7 +440,7 @@ function EventModal({ event, onSave, onDelete, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
       <div className="card w-full max-w-sm p-5 space-y-3 overflow-hidden">
         <h3 className="text-lg font-bold">{event.id ? 'Modifica evento' : 'Nuovo evento'}</h3>
         <input className="input-field" placeholder="Titolo" value={title} onChange={(e) => setTitle(e.target.value)} />

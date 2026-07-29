@@ -191,7 +191,7 @@ function CreateCountdownModal({ onSave, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
       <div className="card w-full max-w-sm p-5 space-y-3 overflow-hidden">
         <h3 className="text-lg font-bold">Nuovo countdown</h3>
         <input className="input-field" placeholder="Titolo" value={title} onChange={(e) => setTitle(e.target.value)} />

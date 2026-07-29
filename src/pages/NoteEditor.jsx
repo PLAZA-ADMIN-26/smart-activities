@@ -504,7 +504,7 @@ export default function NoteEditor({ note, onSave, onDelete, onClose, onAddAutoT
       </div>
 
       {showHistory && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
           <div className="card w-full max-w-sm p-5 max-h-[70vh] overflow-y-auto">
             <h3 className="text-lg font-bold mb-3">Cronologia versioni</h3>
             {history.length === 0 && <p className="text-sm text-textSoft dark:text-dark-text/60">Nessuna versione precedente salvata.</p>}
